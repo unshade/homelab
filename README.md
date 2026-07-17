@@ -1,6 +1,27 @@
 # homelab
 
-Single-node [Talos Linux](https://www.talos.dev/) Kubernetes cluster running as a VM on Proxmox.
+## Flux
+
+First installation :
+
+```bash
+flux bootstrap github \
+  --private=false \
+  --token-auth \
+  --owner=unshade \
+  --repository=homelab \
+  --branch=main \
+  --path=clusters/homelab \
+  --personal
+```
+
+Then paste PAT with [required scopes](https://fluxcd.io/flux/installation/bootstrap/github/#github-pat).
+
+Trash flux :
+
+```bash
+flux uninstall --namespace=flux-system --keep-namespace
+```
 
 ## Cluster facts
 
