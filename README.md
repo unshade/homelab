@@ -15,6 +15,7 @@ Single-node [Talos Linux](https://www.talos.dev/) Kubernetes cluster running as 
 | Kubernetes version | v1.36.2 |
 | CNI | flannel |
 | Role | control-plane, with `allowSchedulingOnControlPlanes: true` so regular pods schedule on it too (it's the only node) |
+| Data disk | `sdb`, 430GB, XFS, mounted at `/var/mnt/data` (see Storage section) |
 
 > The node's static IP (`192.168.1.252`) should be excluded from your router's DHCP pool so it never gets handed out to something else.
 
@@ -154,7 +155,53 @@ removed by hand:
 kubectl delete node 192-168-1-16 talos-lv0-386
 ```
 
-**7. Set up SOPS + GPG encryption** so the config could be committed to git safely (see above).
+**7. Added the QEMU guest agent** by requesting a custom installer image from the Talos Image
+Factory (extension `siderolabs/qemu-guest-agent`) and running `talosctl upgrade` to that image —
+extensions get baked into the boot image, they're not a plain config field.
+
+**8. Provisioned the second disk (`sdb`, 430GB) as a `UserVolumeConfig`** — formatted it XFS and
+mounted it at `/var/mnt/data`. See the Storage section below for what this is and how it's meant
+to be used.
+
+**9. Set up SOPS + GPG encryption** so the config could be committed to git safely (see above).
+
+## Storage
+
+`UserVolumeConfig` is a **Talos** machine config document, not a Kubernetes resource — it lives
+in `controlplane.yaml` alongside `HostnameConfig`, and it's how Talos itself (not Kubernetes)
+declaratively owns a disk: which physical disk to use, what filesystem to put on it, where to
+mount it on the node. There is no `kubectl get uservolumeconfig` — the object doesn't exist in
+the Kubernetes API at all, only in Talos's own config/resource system on the node:
+```bash
+talosctl -n 192.168.1.252 get volumestatus u-data     # provisioning result: partition, size, phase
+talosctl -n 192.168.1.252 get mountstatus              # confirms it's mounted at /var/mnt/data
+```
+
+```yaml
+apiVersion: v1alpha1
+kind: UserVolumeConfig
+name: data                        # mount path becomes /var/mnt/<name>
+provisioning:
+    diskSelector:
+        match: '!system_disk'     # "the disk Talos isn't installed on" — sdb
+    minSize: 400GB
+filesystem:
+    type: xfs
+```
+
+This is **layer 1 of 2**. Talos formatting and mounting `/var/mnt/data` just makes 430GB of disk
+available *on the node* — it does nothing for Kubernetes by itself. **Layer 2** is a Kubernetes
+`StorageClass`/provisioner that actually turns that mounted directory into `PersistentVolume`s
+pods can claim. That part isn't set up yet — the plan discussed was
+[local-path-provisioner](https://github.com/rancher/local-path-provisioner) pointed at
+`/var/mnt/data`, since for a single node it gives dynamic PVC provisioning without the
+complexity of something like Longhorn (which is built for replicating across multiple nodes —
+no benefit here, only overhead).
+
+**TODO — cold storage:** a separate NFS-backed `StorageClass`, backed by a ZFS dataset exported
+from the Proxmox host itself rather than this local disk. Trades a bit of performance for the
+ability to browse/manage/snapshot the data directly from Proxmox, which a local block device
+fundamentally can't offer — `sdb`/`/var/mnt/data` stays reserved for regular fast PVCs.
 
 ## Managing the cluster
 

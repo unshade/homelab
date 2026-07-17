@@ -4,3 +4,5 @@ talos/_out/controlplane.yaml
 talos/_out/worker.yaml
 talos/_out/talosconfig
 talos/_out/kubeconfig
+
+secrets
