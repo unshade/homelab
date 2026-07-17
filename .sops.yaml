@@ -1,0 +1,3 @@
+creation_rules:
+  - path_regex: talos/_out/.*\.enc\.yaml$
+    pgp: 0838E38422232D44B96B6C7659A7C95E7A016E5A
