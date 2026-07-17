@@ -1,0 +1,6 @@
+# Talos generated secrets - plaintext versions never get committed.
+# Only the .sops.yaml-encrypted copies (talos/_out/*.enc.yaml) are versioned.
+talos/_out/controlplane.yaml
+talos/_out/worker.yaml
+talos/_out/talosconfig
+talos/_out/kubeconfig
