@@ -6,7 +6,7 @@ metadata:
 spec:
   parentRefs:
   - name: main
-    namespace: envoy-system
+    namespace: envoy-gateway-system
     sectionName: https
   hostnames:
     - "secrets.nstnr.com"
