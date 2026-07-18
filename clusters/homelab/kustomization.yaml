@@ -12,3 +12,4 @@ resources:
   - ./kustomizations/gateway.yaml
   - ./kustomizations/gateway-config.yaml
   - ./kustomizations/private-bin.yaml
+  - ./kustomizations/cloudflared.yaml

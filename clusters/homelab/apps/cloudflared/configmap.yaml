@@ -1,0 +1,21 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudflared-config
+  namespace: cloudflared
+data:
+  config.yaml: |
+    tunnel: 026c6e2b-a68c-44a3-8da4-0fa09e90b7c6
+    credentials-file: /etc/cloudflared/creds/credentials.json
+    ingress:
+      # Points at the Gateway's HTTPS listener (not port 80) to avoid the
+      # http-to-https redirect rule bouncing cloudflared in a loop.
+      # Service name comes from `kubectl -n envoy-gateway-system get svc` —
+      # Envoy Gateway generates it from the Gateway's name/namespace; only
+      # changes if the `main` Gateway object itself is deleted/recreated.
+      - hostname: secrets.nstnr.com
+        service: https://envoy-envoy-gateway-system-main-b3b376e9.envoy-gateway-system.svc.cluster.local:443
+        originRequest:
+          originServerName: secrets.nstnr.com
+      - service: http_status:404
