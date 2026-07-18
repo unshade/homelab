@@ -10,4 +10,5 @@ resources:
   - ./kustomizations/cert-manager.yaml
   - ./kustomizations/cluster-issuer.yaml
   - ./kustomizations/gateway.yaml
+  - ./kustomizations/gateway-config.yaml
   - ./kustomizations/private-bin.yaml
