@@ -15,7 +15,7 @@ data:
       # Envoy Gateway generates it from the Gateway's name/namespace; only
       # changes if the `main` Gateway object itself is deleted/recreated.
       - hostname: secrets.nstnr.com
-        service: https://envoy-envoy-gateway-system-main-b3b376e9.envoy-gateway-system.svc.cluster.local:443
+        service: https://envoy-main-0d6e4079.envoy-gateway-system.svc.cluster.local:443
         originRequest:
           originServerName: secrets.nstnr.com
       - service: http_status:404
