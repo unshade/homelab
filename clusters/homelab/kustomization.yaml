@@ -5,6 +5,8 @@ namespace: flux-system
 resources:
   - ./kustomizations/repositories.yaml
 
+  - ./kustomizations/cilium.yaml
+  - ./kustomizations/cilium-config.yaml
   - ./kustomizations/cert-manager.yaml
   - ./kustomizations/cluster-issuer.yaml
   - ./kustomizations/gateway.yaml
