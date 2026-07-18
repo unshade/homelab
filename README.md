@@ -34,7 +34,7 @@ flux uninstall --namespace=flux-system --keep-namespace
 | Gateway | `192.168.1.254` |
 | Talos version | v1.13.5 |
 | Kubernetes version | v1.36.2 |
-| CNI | flannel |
+| CNI | [Cilium](https://cilium.io) (replaces flannel), kube-proxy-replacement mode, LoadBalancer IPs via L2 announcement (replaces the never-installed MetalLB) — see [Networking: Cilium](#networking-cilium) |
 | Role | control-plane, with `allowSchedulingOnControlPlanes: true` so regular pods schedule on it too (it's the only node) |
 | Data disk | `sdb`, 430GB, XFS, mounted at `/var/mnt/data` (see Storage section) |
 
@@ -185,6 +185,110 @@ mounted it at `/var/mnt/data`. See the Storage section below for what this is an
 to be used.
 
 **9. Set up SOPS + GPG encryption** so the config could be committed to git safely (see above).
+
+## Networking: Cilium
+
+The cluster originally ran Talos's default CNI (flannel) and kube-proxy. MetalLB was planned for
+`LoadBalancer` IPs but never actually installed. All three were replaced with
+[Cilium](https://cilium.io): it's the CNI, it replaces kube-proxy (eBPF-based Service routing,
+`kubeProxyReplacement: true`), and it hands out `LoadBalancer` IPs itself via **L2 announcement**
+(ARP-based — there's no BGP router on this LAN, so BGP mode wasn't an option) instead of MetalLB.
+
+Managed via Flux, same pattern as everything else in `clusters/homelab/apps/`:
+
+- `repositories/helm/cilium.yaml` — `HelmRepository` pointing at `https://helm.cilium.io/`.
+- `apps/cilium/release.yaml` — the `HelmRelease` (installed into `kube-system`, chart `1.19.6`).
+- `apps/cilium-config/lb-pool.yaml` — a `CiliumLoadBalancerIPPool` (`192.168.1.190`–`192.168.1.200`)
+  and `CiliumL2AnnouncementPolicy`, the direct equivalent of MetalLB's IPAddressPool +
+  L2Advertisement. This is its own Flux `Kustomization` with `dependsOn: [cilium]`, since its CRDs
+  only exist once the Cilium HelmRelease has installed.
+
+Key Helm values, and why each one is there (Talos needs some overrides other distros don't):
+
+```yaml
+kubeProxyReplacement: true
+k8sServiceHost: 192.168.1.252   # this node's static IP
+k8sServicePort: 6443
+cgroup:
+  autoMount:
+    enabled: false               # Talos already mounts cgroupv2 itself
+  hostRoot: /sys/fs/cgroup
+securityContext:
+  capabilities:                  # see "Problem 1" below — required on Talos
+    ciliumAgent: [CHOWN, KILL, NET_ADMIN, NET_RAW, IPC_LOCK, SYS_ADMIN, SYS_RESOURCE, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    cleanCiliumState: [NET_ADMIN, SYS_ADMIN, SYS_RESOURCE]
+operator:
+  replicas: 1                    # chart default is 2; this is a one-node cluster
+```
+
+`k8sServiceHost`/`k8sServicePort` are mandatory in kube-proxy-replacement mode: without kube-proxy
+there's no ClusterIP-to-apiserver translation, so Cilium needs the real API endpoint directly.
+
+On the Talos side (`talos/_out/controlplane.yaml`), two fields turn off the defaults Cilium is
+replacing:
+```yaml
+cluster:
+  network:
+    cni:
+      name: none        # don't deploy flannel
+  proxy:
+    disabled: true       # don't deploy kube-proxy
+```
+
+### Doing this cutover live, on a single-node cluster with no failover
+
+This is inherently disruptive: for a moment there is no working CNI at all. Existing pods keep
+their IPs, but the moment flannel's DaemonSet is gone, its VXLAN interface and iptables rules go
+with it — pod-to-pod networking breaks until Cilium's datapath is up. `kubectl`/`talosctl` stay
+reachable throughout (the control plane runs as static, host-network pods), so it's recoverable
+even mid-outage, but nothing pod-network-based works until Cilium is healthy.
+
+**What actually happened, for reference — three separate problems stacked on top of each other:**
+
+1. **Capabilities error.** Cilium's `clean-cilium-state` init container immediately crashed:
+   `unable to apply caps: can't apply capabilities: operation not permitted`. Talos's default
+   container capability bounding set is stricter than the Cilium chart assumes — the fix is the
+   explicit `securityContext.capabilities` block above, which [Talos's own Cilium
+   guide](https://docs.siderolabs.com/kubernetes-guides/cni/deploying-cilium) documents. Without
+   it, Cilium simply cannot start on Talos, full stop.
+
+2. **Flux locked itself out.** While Cilium was crash-looping (no working CNI yet), Flux's own
+   controllers — `source-controller`, `kustomize-controller`, `helm-controller` — are ordinary
+   pod-network pods, not host-network. They lost their route to the API server's ClusterIP along
+   with everything else, so Flux couldn't reconcile the fix I'd already pushed to git. The cluster
+   was stuck: no CNI, and the tool that would normally fix it couldn't reach anything either.
+   Recovery was a one-time manual `helm upgrade --install cilium cilium/cilium ...` run **from
+   outside the cluster** (a laptop, talking straight to the node's real IP, bypassing in-cluster
+   networking entirely) using the corrected values. That brought Cilium up, which restored pod
+   networking, which let Flux's controllers reconnect and take back over on their own — Flux's
+   next reconcile recognized the manually-installed release and adopted it with a normal `helm
+   upgrade`, no special handling needed. **Takeaway:** if a from-scratch CNI bootstrap ever needs
+   to happen again, don't assume Flux can be the thing that installs the CNI it depends on to run
+   — keep a manual `helm install` escape hatch in mind.
+
+3. **Stale pod sandboxes.** Once Cilium was healthy, pods that had been running *before* the
+   cutover (`flux-system`, `cert-manager`, `envoy-gateway-system`) still showed `0/1 Ready` with
+   liveness/readiness probes failing on `no route to host`. Their network sandboxes were created
+   under flannel's old routing and never got migrated — they needed a fresh sandbox under Cilium.
+   Fix: `kubectl delete pod` on each (all are Deployment-managed, so they self-heal immediately
+   with new, correctly-routed IPs). This is expected any time the CNI itself changes underneath
+   already-running pods; it isn't Cilium-specific.
+
+**Verifying it's actually healthy:**
+```bash
+kubectl get nodes                                          # Ready
+kubectl get pods -A                                         # everything Running, no stale sandboxes
+kubectl -n kube-system exec ds/cilium -- cilium-dbg status --brief   # "OK"
+kubectl get ciliumloadbalancerippools                        # IPs available
+kubectl get ciliuml2announcementpolicies
+flux get helmrelease -A                                      # cilium: Ready
+```
+
+**How to know the schema/values for a chart like this in general:** `helm show values
+cilium/cilium --version 1.19.6` dumps every configurable value with inline comments — that's the
+authoritative source, not guessing from blog posts. For the CRDs Cilium itself installs
+(`CiliumLoadBalancerIPPool`, etc.), `kubectl explain ciliumloadbalancerippool.spec` works the same
+way `kubectl explain` does for any other CRD, once the CRD is installed.
 
 ## Storage
 
