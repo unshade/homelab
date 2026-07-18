@@ -9,7 +9,7 @@ spec:
   prune: true
   wait: false
   dependsOn:
-    - name: envoy-gateway
+    - name: gateway-config
   sourceRef:
     kind: GitRepository
     name: flux-system
