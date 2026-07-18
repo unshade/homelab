@@ -6,3 +6,5 @@ resources:
   - ./kustomizations/repositories.yaml
 
   - ./kustomizations/cert-manager.yaml
+  - ./kustomizations/cluster-issuer.yaml
+  - ./kustomizations/gateway.yaml
