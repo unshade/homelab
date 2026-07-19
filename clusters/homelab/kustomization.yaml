@@ -8,6 +8,7 @@ resources:
   - ./kustomizations/cilium.yaml
   - ./kustomizations/cilium-config.yaml
   - ./kustomizations/longhorn.yaml
+  - ./kustomizations/cnpg.yaml
   - ./kustomizations/cert-manager.yaml
   - ./kustomizations/cluster-issuer.yaml
   - ./kustomizations/gateway.yaml
