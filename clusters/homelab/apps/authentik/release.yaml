@@ -63,6 +63,17 @@ spec:
               sectionName: https
           hostnames:
             - auth.nstnr.com
+      # fsGroup 1000 matches the container's runtime UID/GID — without it the
+      # non-root authentik process can't write to the mounted PVC.
+      securityContext:
+        fsGroup: 1000
+      volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: authentik-media
+      volumeMounts:
+        - name: media
+          mountPath: /data
     worker:
       replicas: 1
       resources:
@@ -72,6 +83,15 @@ spec:
         limits:
           cpu: 500m
           memory: 1Gi
+      securityContext:
+        fsGroup: 1000
+      volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: authentik-media
+      volumeMounts:
+        - name: media
+          mountPath: /data
   valuesFrom:
     - kind: Secret
       name: authentik-secrets

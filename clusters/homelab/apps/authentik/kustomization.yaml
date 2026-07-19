@@ -6,4 +6,5 @@ resources:
   - namespace.yaml
   - secret-sops.yaml
   - postgres-cluster.yaml
+  - media-pvc.yaml
   - release.yaml

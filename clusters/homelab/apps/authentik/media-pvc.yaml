@@ -1,0 +1,14 @@
+---
+# ReadWriteMany, not ReadWriteOnce: server and worker are separate pods that
+# both need this volume mounted simultaneously, even at 1 replica each.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: authentik-media
+spec:
+  storageClassName: longhorn
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 2Gi
