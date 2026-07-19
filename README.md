@@ -186,6 +186,35 @@ to be used.
 
 **9. Set up SOPS + GPG encryption** so the config could be committed to git safely (see above).
 
+**10. Added Longhorn's required extensions** (`siderolabs/iscsi-tools`, `siderolabs/util-linux-tools`)
+the same way — a new Image Factory schematic including these plus the existing
+`siderolabs/qemu-guest-agent`, then `talosctl upgrade` to it:
+```bash
+curl -X POST "https://factory.talos.dev/schematics" -H "Content-Type: application/yaml" --data-binary @- <<'EOF'
+customization:
+  systemExtensions:
+    officialExtensions:
+      - siderolabs/qemu-guest-agent
+      - siderolabs/iscsi-tools
+      - siderolabs/util-linux-tools
+EOF
+# returns a schematic ID; current one: 53513e54bb39202f35694412577a6bc53d484744d35a126e5d42ef34785c0d83
+talosctl -n 192.168.1.252 upgrade \
+  --image factory.talos.dev/installer/53513e54bb39202f35694412577a6bc53d484744d35a126e5d42ef34785c0d83:v1.13.5
+```
+This reboots the node (it's the only one — expect a brief full-cluster interruption while it
+comes back). Verify with `talosctl -n 192.168.1.252 get extensions`. Also added
+`machine.kubelet.extraMounts` for `/var/mnt/data` (see the Networking/Storage sections) — paths
+on the Talos host aren't visible inside the kubelet's own mount namespace without this, which
+Longhorn's hostPath-based pods need.
+
+The chosen installer image *is* tracked declaratively, in `machine.install.image` — but
+`talosctl upgrade --image ...` only swaps the running image, it does **not** write the new
+reference back into `controlplane.yaml` for you. That has to be done by hand (and was, here) or
+the file silently drifts from what's actually running — a fresh install from a stale
+`controlplane.yaml` would use the old image and come back without these extensions, even though
+`install.image` genuinely is the field meant to make this reproducible.
+
 ## Networking: Cilium
 
 The cluster originally ran Talos's default CNI (flannel) and kube-proxy. MetalLB was planned for
@@ -317,11 +346,28 @@ filesystem:
 This is **layer 1 of 2**. Talos formatting and mounting `/var/mnt/data` just makes 430GB of disk
 available *on the node* — it does nothing for Kubernetes by itself. **Layer 2** is a Kubernetes
 `StorageClass`/provisioner that actually turns that mounted directory into `PersistentVolume`s
-pods can claim. That part isn't set up yet — the plan discussed was
-[local-path-provisioner](https://github.com/rancher/local-path-provisioner) pointed at
-`/var/mnt/data`, since for a single node it gives dynamic PVC provisioning without the
-complexity of something like Longhorn (which is built for replicating across multiple nodes —
-no benefit here, only overhead).
+pods can claim — this is [Longhorn](https://longhorn.io) (`clusters/homelab/apps/longhorn/`),
+using its **strict-local** data-locality mode rather than the plain single-node
+`local-path-provisioner` originally considered here.
+
+`strict-local` forces exactly one replica, pinned to the same node as the pod using it — no
+cross-node replication attempted, which fits a single-node cluster fine (multi-replica would just
+mean permanently-degraded volumes trying to place replicas on nodes that don't exist). Unlike
+local-path-provisioner, Longhorn still provides snapshots, backups, and online volume expansion —
+worth having for apps that manage their own redundancy at the application level (e.g. a Postgres
+with its own backup strategy) and just need a real block-storage feature set underneath. The
+`longhorn-strict-local` StorageClass (`numberOfReplicas: "1"`, `dataLocality: "strict-local"`) is
+the cluster's default. When more nodes are added later, a second StorageClass with a higher
+replica count can just be added alongside it — nothing about this setup blocks that, replica
+count is a per-StorageClass (and per-volume) parameter, not a cluster-wide one.
+
+Longhorn's engine needs iSCSI tooling Talos doesn't ship by default — this needs two Talos system
+extensions (`siderolabs/iscsi-tools`, `siderolabs/util-linux-tools`) baked into the boot image via
+a `talosctl upgrade --image factory.talos.dev/installer/<schematic>:<version>`, plus a
+`machine.kubelet.extraMounts` bind-mount so hostPath-based pods can actually see
+`/var/mnt/data` (paths on the Talos host aren't automatically visible inside the kubelet's own
+mount namespace). See [Longhorn's Talos support
+doc](https://longhorn.io/docs/latest/advanced-resources/os-distro-specific/talos-linux-support/).
 
 **TODO — cold storage:** a separate NFS-backed `StorageClass`, backed by a ZFS dataset exported
 from the Proxmox host itself rather than this local disk. Trades a bit of performance for the

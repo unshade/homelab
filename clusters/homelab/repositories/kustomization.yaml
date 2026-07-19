@@ -5,3 +5,4 @@ namespace: flux-system
 resources:
   - ./helm/jetstack.yaml
   - ./helm/cilium.yaml
+  - ./helm/longhorn.yaml
