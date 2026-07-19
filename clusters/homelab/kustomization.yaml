@@ -5,6 +5,7 @@ namespace: flux-system
 resources:
   - ./kustomizations/repositories.yaml
 
+  - ./kustomizations/metrics-server.yaml
   - ./kustomizations/cilium.yaml
   - ./kustomizations/cilium-config.yaml
   - ./kustomizations/longhorn.yaml

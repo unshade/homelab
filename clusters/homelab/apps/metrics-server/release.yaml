@@ -1,0 +1,30 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: metrics-server
+  namespace: metrics-server
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: metrics-server
+      version: 3.13.1
+      sourceRef:
+        kind: HelmRepository
+        name: metrics-server
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    # Talos's kubelet cert doesn't validate cleanly against metrics-server's
+    # default trust chain (common on Talos/homelab clusters generally, not
+    # specific to some misconfiguration here) — without this, metrics-server
+    # runs but every scrape fails with an x509 error and `kubectl top` stays
+    # empty.
+    args:
+      - --kubelet-insecure-tls

@@ -8,3 +8,4 @@ resources:
   - ./helm/longhorn.yaml
   - ./helm/cnpg.yaml
   - ./helm/authentik.yaml
+  - ./helm/metrics-server.yaml
