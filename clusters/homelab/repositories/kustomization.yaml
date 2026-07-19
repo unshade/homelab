@@ -7,3 +7,4 @@ resources:
   - ./helm/cilium.yaml
   - ./helm/longhorn.yaml
   - ./helm/cnpg.yaml
+  - ./helm/authentik.yaml

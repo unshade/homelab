@@ -1,0 +1,27 @@
+---
+# instances: 1 for now, bump to 3 later for HA. strict-local is intentional
+# even at 3 instances: CNPG's own streaming replication across instances is
+# what provides real redundancy (a node failure fails over to another
+# instance with its own full copy) — adding Longhorn-level block replication
+# underneath each instance on top of that would just be redundant redundancy
+# for no real benefit, at the cost of I/O overhead.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: authentik-postgres
+spec:
+  instances: 1
+  storage:
+    size: 5Gi
+    storageClass: longhorn-strict-local
+  bootstrap:
+    initdb:
+      database: authentik
+      owner: authentik
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
