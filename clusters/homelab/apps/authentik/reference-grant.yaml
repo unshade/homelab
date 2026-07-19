@@ -1,0 +1,18 @@
+---
+# Lets private-bin's SecurityPolicy point its extAuth backendRef at
+# authentik-server here. ReferenceGrant needs an exact namespace per `from`
+# entry (no wildcard) — add another entry when the next app adds the same
+# forward-auth protection from a different namespace.
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-securitypolicy-to-authentik
+spec:
+  from:
+    - group: gateway.envoyproxy.io
+      kind: SecurityPolicy
+      namespace: private-bin
+  to:
+    - group: ""
+      kind: Service
+      name: authentik-server

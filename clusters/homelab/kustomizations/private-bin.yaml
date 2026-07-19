@@ -10,6 +10,7 @@ spec:
   wait: false
   dependsOn:
     - name: gateway-config
+    - name: authentik
   sourceRef:
     kind: GitRepository
     name: flux-system
