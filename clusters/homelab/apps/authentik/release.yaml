@@ -25,7 +25,7 @@ spec:
     postgresql:
       enabled: false
     authentik:
-      bootstrap_email: noesteiner@proton.me
+      bootstrap_email: steiner.noe@ik.me
       error_reporting:
         enabled: false
       # Parent domain, not auth.nstnr.com — the forward-auth SSO session
