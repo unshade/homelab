@@ -6,3 +6,7 @@ talos/_out/talosconfig
 talos/_out/kubeconfig
 
 secrets
+
+# Decrypted copies of *-sops.yaml secrets (see scripts/decrypt-sops-secrets.sh) -
+# convenience-only, regenerated locally, never committed.
+*-sops.dec.yaml
