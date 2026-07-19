@@ -28,10 +28,23 @@ spec:
       bootstrap_email: noesteiner@proton.me
       error_reporting:
         enabled: false
+      # Parent domain, not auth.nstnr.com — the forward-auth SSO session
+      # cookie needs to be visible across every *.nstnr.com subdomain it
+      # protects, not just Authentik's own hostname.
+      cookie_domain: nstnr.com
       postgresql:
         host: authentik-postgres-rw
         name: authentik
         user: authentik
+      # FILL IN: host/port/username/from below (not sensitive, plain values).
+      # Password comes from the authentik-secrets Secret via valuesFrom.
+      email:
+        host: mail.infomaniak.com
+        port: 587
+        username: steiner.noe@ik.me
+        from: "steiner.noe@ik.me"
+        use_tls: true
+        use_ssl: false
     server:
       replicas: 1
       resources:
@@ -76,3 +89,7 @@ spec:
       name: authentik-postgres-app
       valuesKey: password
       targetPath: authentik.postgresql.password
+    - kind: Secret
+      name: authentik-secrets
+      valuesKey: smtp-password
+      targetPath: authentik.email.password
