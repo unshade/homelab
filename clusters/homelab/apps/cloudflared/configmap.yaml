@@ -18,4 +18,8 @@ data:
         service: https://envoy-main-0d6e4079.envoy-gateway-system.svc.cluster.local:443
         originRequest:
           originServerName: secrets.nstnr.com
+      - hostname: auth.nstnr.com
+        service: https://envoy-main-0d6e4079.envoy-gateway-system.svc.cluster.local:443
+        originRequest:
+          originServerName: auth.nstnr.com
       - service: http_status:404

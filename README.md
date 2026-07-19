@@ -23,6 +23,22 @@ Trash flux :
 flux uninstall --namespace=flux-system --keep-namespace
 ```
 
+## Cloudflared
+
+Add a new domain :
+
+```bash
+cloudflared tunnel route dns <tunnel-name> <hostname>
+```
+
+`tunnel-name` is `homelab` and `hostname` is the domain you want to add.
+
+Then, update `clusters/homelab/apps/cloudflared/configmap.yaml` with the new hostname and run :
+
+```bash
+flux reconcile kustomization cloudflared --with-source
+```
+
 ## Cluster facts
 
 | | |
