@@ -18,10 +18,13 @@ spec:
     initdb:
       database: authentik
       owner: authentik
+  # Bumped after finding Postgres itself (not authentik-server) was the real
+  # bottleneck: 11% of CPU periods throttled, memory at 99% of its limit —
+  # every single API call authentik-server makes hits this DB.
   resources:
     requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
       cpu: 500m
-      memory: 1Gi
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
