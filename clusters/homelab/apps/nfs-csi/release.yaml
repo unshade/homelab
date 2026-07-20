@@ -25,10 +25,13 @@ spec:
       create: true
       name: nfs
       parameters:
-        server: 192.168.1.251
+        # This is the Proxmox host's actual vmbr0 address (confirmed via
+        # `ip addr show` on the host) — not .251, which nothing was ever
+        # listening on.
+        server: 192.168.1.201
         # ASSUMPTION: default ZFS mountpoint convention for dataset "Main/data".
-        # Verify with `zfs get mountpoint Main/data` on the NAS (or
-        # `showmount -e 192.168.1.251` from anywhere) before relying on this —
+        # Verify with `zfs get mountpoint Main/data` on the host (or
+        # `showmount -e 192.168.1.201` from anywhere) before relying on this —
         # ZFS mountpoints can be customized away from the dataset name.
         share: /Main/data
         # Isolates each PVC into its own subdirectory on the NAS so unrelated
