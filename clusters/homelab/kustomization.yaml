@@ -16,5 +16,4 @@ resources:
   - ./kustomizations/gateway-config.yaml
   - ./kustomizations/private-bin.yaml
   - ./kustomizations/cloudflared.yaml
-  - ./kustomizations/vaultwarden.yaml
   - ./kustomizations/authentik.yaml
