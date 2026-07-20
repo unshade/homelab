@@ -9,3 +9,4 @@ resources:
   - ./helm/cnpg.yaml
   - ./helm/authentik.yaml
   - ./helm/metrics-server.yaml
+  - ./helm/csi-driver-nfs.yaml

@@ -1,0 +1,49 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: csi-driver-nfs
+  namespace: csi-driver-nfs
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: csi-driver-nfs
+      version: 4.13.4
+      sourceRef:
+        kind: HelmRepository
+        name: csi-driver-nfs
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    storageClass:
+      create: true
+      name: nfs
+      parameters:
+        server: 192.168.1.251
+        # ASSUMPTION: default ZFS mountpoint convention for dataset "Main/data".
+        # Verify with `zfs get mountpoint Main/data` on the NAS (or
+        # `showmount -e 192.168.1.251` from anywhere) before relying on this —
+        # ZFS mountpoints can be customized away from the dataset name.
+        share: /Main/data
+        # Isolates each PVC into its own subdirectory on the NAS so unrelated
+        # PVCs never share one directory.
+        subDir: "${pvc.metadata.namespace}-${pvc.metadata.name}"
+        onDelete: retain
+      # Retain, not Delete: this is meant for data you manage/browse directly
+      # from the NAS (see README's Storage section) — an accidental PVC
+      # delete shouldn't silently wipe it.
+      reclaimPolicy: Retain
+      volumeBindingMode: Immediate
+      # Forces NFSv4 on every mount through this class — the client won't
+      # fall back to v3 even if the server offers it. Major version only
+      # (not e.g. 4.1) so client/server negotiate the highest mutually
+      # supported v4.x minor version rather than failing if a specific
+      # minor version isn't available.
+      mountOptions:
+        - nfsvers=4
