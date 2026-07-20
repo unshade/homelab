@@ -1,0 +1,15 @@
+---
+# SQLite DB + metadata/image cache. ReadWriteOnce is fine — single Jellyfin
+# replica (SQLite, same reasoning as Vaultwarden: not safe for concurrent
+# multi-process access, so there's never a second pod needing this).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jellyfin-config
+spec:
+  storageClassName: longhorn-replicated
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi

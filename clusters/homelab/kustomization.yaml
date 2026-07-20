@@ -18,3 +18,4 @@ resources:
   - ./kustomizations/private-bin.yaml
   - ./kustomizations/cloudflared.yaml
   - ./kustomizations/authentik.yaml
+  - ./kustomizations/jellyfin.yaml

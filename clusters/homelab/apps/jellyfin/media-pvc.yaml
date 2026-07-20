@@ -1,0 +1,15 @@
+---
+# NFS doesn't hard-enforce this size the way block storage does — the real
+# ceiling is whatever the ZFS pool actually has. This is a nominal request,
+# not a reservation. Adjust freely.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jellyfin-media
+spec:
+  storageClassName: nfs
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Ti
