@@ -26,6 +26,7 @@ spec:
       # dataLocality: disabled|best-effort, not strict-local — so it's
       # disabled here in favor of the hand-written StorageClass below.
       defaultClass: false
+      reclaimPolicy: Retain
     defaultSettings:
       # Subdirectory on the /var/mnt/data SSD (not the mount root), leaving
       # room for other uses of that disk later.
