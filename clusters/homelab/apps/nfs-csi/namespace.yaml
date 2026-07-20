@@ -3,3 +3,9 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: csi-driver-nfs
+  labels:
+    # Talos sets a cluster-wide default PSA enforcement of "baseline" unless
+    # overridden per-namespace — this CSI driver's node pods genuinely need
+    # privileged/hostNetwork/hostPath access to perform real mount syscalls
+    # on the host. Same override Longhorn's namespace needed.
+    pod-security.kubernetes.io/enforce: privileged
