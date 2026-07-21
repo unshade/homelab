@@ -1,0 +1,42 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: radarr
+spec:
+  cluster:
+    name: general-postgres
+  name: radarr
+  login: true
+  createdb: false
+  databaseRoleReclaimPolicy: retain
+  passwordSecret:
+    name: radarr-postgres-credentials
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: sonarr
+spec:
+  cluster:
+    name: general-postgres
+  name: sonarr
+  login: true
+  createdb: false
+  databaseRoleReclaimPolicy: retain
+  passwordSecret:
+    name: sonarr-postgres-credentials
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: seerr
+spec:
+  cluster:
+    name: general-postgres
+  name: seerr
+  login: true
+  createdb: false
+  databaseRoleReclaimPolicy: retain
+  passwordSecret:
+    name: seerr-postgres-credentials

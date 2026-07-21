@@ -1,0 +1,59 @@
+---
+# Sonarr/Radarr both require two databases each (main + log) — see
+# https://wiki.servarr.com/sonarr/postgres-setup / .../radarr/postgres-setup.
+# Neither app creates them itself; they must already exist before first run.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: radarr-main
+spec:
+  cluster:
+    name: general-postgres
+  name: radarr-main
+  owner: radarr
+  databaseReclaimPolicy: retain
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: radarr-log
+spec:
+  cluster:
+    name: general-postgres
+  name: radarr-log
+  owner: radarr
+  databaseReclaimPolicy: retain
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: sonarr-main
+spec:
+  cluster:
+    name: general-postgres
+  name: sonarr-main
+  owner: sonarr
+  databaseReclaimPolicy: retain
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: sonarr-log
+spec:
+  cluster:
+    name: general-postgres
+  name: sonarr-log
+  owner: sonarr
+  databaseReclaimPolicy: retain
+---
+# Seerr (docs.seerr.dev) uses a single database, default name "seerr".
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: seerr
+spec:
+  cluster:
+    name: general-postgres
+  name: seerr
+  owner: seerr
+  databaseReclaimPolicy: retain

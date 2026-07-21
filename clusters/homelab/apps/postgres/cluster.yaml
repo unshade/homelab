@@ -1,0 +1,19 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: general-postgres
+spec:
+  instances: 1
+  storage:
+    size: 10Gi
+    storageClass: longhorn-strict-local
+  bootstrap:
+    initdb: {}
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi

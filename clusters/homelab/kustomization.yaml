@@ -11,6 +11,7 @@ resources:
   - ./kustomizations/longhorn.yaml
   - ./kustomizations/nfs-csi.yaml
   - ./kustomizations/cnpg.yaml
+  - ./kustomizations/postgres.yaml
   - ./kustomizations/cert-manager.yaml
   - ./kustomizations/cluster-issuer.yaml
   - ./kustomizations/gateway.yaml
