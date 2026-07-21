@@ -21,24 +21,38 @@ spec:
         fsGroup: 1000
         runAsNonRoot: true
         fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
       containers:
         - name: radarr
-          image: 11notes/radarr:6.3.0
+          image: mirror.gcr.io/linuxserver/radarr:6.3.0@sha256:e35056574cdc695a9ee745aa1ecda9eab3842450bf4b7b8471b023790fa3861d
           securityContext:
-            allowPrivilegeEscalation: false
+            seccompProfile:
+              type: RuntimeDefault
           env:
-            - name: TZ
-              value: "Europe/Paris"
+          - name: PUID
+            value: "1000"
+          - name: PGID
+            value: "1000"
+          - name: TZ
+            value: "Europe/Paris"
+          - name: S6_YES_I_WANT_A_WORLD_WRITABLE_RUN_BECAUSE_KUBERNETES
+            value: "1"
+          - name: S6_READ_ONLY_ROOT
+            value: "1"
+          - name: S6_VERBOSITY
+            value: "2"
           ports:
             - name: http
               containerPort: 7878
           volumeMounts:
-            - name: config
-              mountPath: /radarr/etc
-            - name: data
-              mountPath: /data
-            - name: tmp
-              mountPath: /tmp
+          - name: config
+            mountPath: /config
+          - name: data
+            mountPath: /data
+          - name: run
+            mountPath: /run
           resources:
             requests:
               cpu: 100m
@@ -53,6 +67,5 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: jellyfin-media
-        - name: tmp
-          emptyDir:
-            medium: Memory
+        - name: run
+          emptyDir: {}
