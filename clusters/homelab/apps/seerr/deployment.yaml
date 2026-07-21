@@ -1,0 +1,72 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seerr
+  labels:
+    app: seerr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: seerr
+  template:
+    metadata:
+      labels:
+        app: seerr
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
+      containers:
+        - name: seerr
+          image: ghcr.io/seerr-team/seerr:v3.0.1@sha256:e2529e89f1b7c427a0d85a381498259eb0bf18b7b9f8b9106a68a30b5cb2f4c0
+          securityContext:
+            allowPrivilegeEscalation: false
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+            - name: LOG_LEVEL
+              value: info
+            - name: TZ
+              value: Europe/Paris
+            - name: PORT
+              value: "5055"
+            - name: DB_TYPE
+              value: postgres
+            - name: DB_HOST
+              value: general-postgres-rw.postgres.svc.cluster.local
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              value: seerr
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: seerr-postgres-credentials
+                  key: password
+            - name: DB_NAME
+              value: seerr
+          ports:
+            - name: http
+              containerPort: 5055
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: seerr-config

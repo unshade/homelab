@@ -22,3 +22,4 @@ resources:
   - ./kustomizations/jellyfin.yaml
   - ./kustomizations/radarr.yaml
   - ./kustomizations/sonarr.yaml
+  - ./kustomizations/seerr.yaml
