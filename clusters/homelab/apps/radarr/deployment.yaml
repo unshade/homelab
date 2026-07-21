@@ -23,7 +23,7 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
       containers:
         - name: radarr
-          image: linuxserver/radarr:6.3.0.10514-ls312
+          image: 11notes/radarr:6.3.0
           securityContext:
             allowPrivilegeEscalation: false
           env:
@@ -34,11 +34,11 @@ spec:
               containerPort: 7878
           volumeMounts:
             - name: config
-              mountPath: /config
+              mountPath: /radarr/etc
             - name: data
               mountPath: /data
-            - name: run
-              mountPath: /run
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 100m
@@ -53,6 +53,6 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: jellyfin-media
-        - name: run
+        - name: tmp
           emptyDir:
             medium: Memory
