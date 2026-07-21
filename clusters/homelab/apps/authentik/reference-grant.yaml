@@ -12,6 +12,9 @@ spec:
     - group: gateway.envoyproxy.io
       kind: SecurityPolicy
       namespace: private-bin
+    - group: gateway.envoyproxy.io
+      kind: SecurityPolicy
+      namespace: jellyfin
   to:
     - group: ""
       kind: Service

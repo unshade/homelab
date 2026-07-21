@@ -19,3 +19,4 @@ resources:
   - ./kustomizations/cloudflared.yaml
   - ./kustomizations/authentik.yaml
   - ./kustomizations/jellyfin.yaml
+  - ./kustomizations/radarr.yaml
