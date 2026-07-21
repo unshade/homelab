@@ -30,4 +30,8 @@ data:
         service: https://envoy-main-0d6e4079.envoy-gateway-system.svc.cluster.local:443
         originRequest:
           originServerName: radarr.nstnr.com
+      - hostname: sonarr.nstnr.com
+        service: https://envoy-main-0d6e4079.envoy-gateway-system.svc.cluster.local:443
+        originRequest:
+          originServerName: sonarr.nstnr.com
       - service: http_status:404

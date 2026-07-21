@@ -1,0 +1,71 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonarr
+  labels:
+    app: sonarr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sonarr
+  template:
+    metadata:
+      labels:
+        app: sonarr
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
+      containers:
+        - name: sonarr
+          image: linuxserver/sonarr:4.0.19
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+          - name: PUID
+            value: "1000"
+          - name: PGID
+            value: "1000"
+          - name: TZ
+            value: "Europe/Paris"
+          - name: S6_YES_I_WANT_A_WORLD_WRITABLE_RUN_BECAUSE_KUBERNETES
+            value: "1"
+          - name: S6_READ_ONLY_ROOT
+            value: "1"
+          - name: S6_VERBOSITY
+            value: "2"
+          ports:
+            - name: http
+              containerPort: 8989
+          volumeMounts:
+          - name: config
+            mountPath: /config
+          - name: data
+            mountPath: /data
+          - name: run
+            mountPath: /run
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: sonarr-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: jellyfin-media
+        - name: run
+          emptyDir: {}

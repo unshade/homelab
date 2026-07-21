@@ -20,3 +20,4 @@ resources:
   - ./kustomizations/authentik.yaml
   - ./kustomizations/jellyfin.yaml
   - ./kustomizations/radarr.yaml
+  - ./kustomizations/sonarr.yaml
