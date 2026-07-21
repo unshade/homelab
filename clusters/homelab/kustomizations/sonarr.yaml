@@ -20,3 +20,4 @@ spec:
     - name: longhorn
     - name: jellyfin
     - name: authentik
+    - name: postgres

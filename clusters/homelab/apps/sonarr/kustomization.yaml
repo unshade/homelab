@@ -4,6 +4,7 @@ namespace: jellyfin
 
 resources:
   - config-pvc.yaml
+  - secret-sops.yaml
   - deployment.yaml
   - service.yaml
   - route.yaml

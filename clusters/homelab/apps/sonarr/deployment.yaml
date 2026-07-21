@@ -43,6 +43,21 @@ spec:
             value: "1"
           - name: S6_VERBOSITY
             value: "2"
+          - name: SONARR__POSTGRES__HOST
+            value: general-postgres-rw.postgres.svc.cluster.local
+          - name: SONARR__POSTGRES__PORT
+            value: "5432"
+          - name: SONARR__POSTGRES__USER
+            value: sonarr
+          - name: SONARR__POSTGRES__PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: sonarr-postgres-credentials
+                key: password
+          - name: SONARR__POSTGRES__MAINDB
+            value: sonarr-main
+          - name: SONARR__POSTGRES__LOGDB
+            value: sonarr-log
           ports:
             - name: http
               containerPort: 8989

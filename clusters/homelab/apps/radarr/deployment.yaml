@@ -43,6 +43,21 @@ spec:
             value: "1"
           - name: S6_VERBOSITY
             value: "2"
+          - name: RADARR__POSTGRES__HOST
+            value: general-postgres-rw.postgres.svc.cluster.local
+          - name: RADARR__POSTGRES__PORT
+            value: "5432"
+          - name: RADARR__POSTGRES__USER
+            value: radarr
+          - name: RADARR__POSTGRES__PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: radarr-postgres-credentials
+                key: password
+          - name: RADARR__POSTGRES__MAINDB
+            value: radarr-main
+          - name: RADARR__POSTGRES__LOGDB
+            value: radarr-log
           ports:
             - name: http
               containerPort: 7878
