@@ -27,10 +27,6 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
           env:
-            - name: PUID
-              value: "1000"
-            - name: PGID
-              value: "1000"
             - name: TZ
               value: "Europe/Paris"
           ports:
@@ -41,6 +37,8 @@ spec:
               mountPath: /config
             - name: data
               mountPath: /data
+            - name: run
+              mountPath: /run
           resources:
             requests:
               cpu: 100m
@@ -55,3 +53,6 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: jellyfin-media
+        - name: run
+          emptyDir:
+            medium: Memory
