@@ -26,7 +26,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: seerr
-          image: ghcr.io/seerr-team/seerr:v3.0.1@sha256:e2529e89f1b7c427a0d85a381498259eb0bf18b7b9f8b9106a68a30b5cb2f4c0
+          image: ghcr.io/seerr-team/seerr:v3.3.0@sha256:c92d2dc117f62185e7bcb88cd56efd374ea79210eaf433275449e8d5988eb5a8
           securityContext:
             allowPrivilegeEscalation: false
             seccompProfile:
