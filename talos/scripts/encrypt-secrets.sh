@@ -6,8 +6,9 @@ set -euo pipefail
 cd "$(dirname "$0")/../_out"
 
 sops -e --filename-override controlplane.enc.yaml controlplane.yaml > controlplane.enc.yaml
+sops -e --filename-override controlplane-cp2.enc.yaml controlplane-cp2.yaml > controlplane-cp2.enc.yaml
 sops -e --filename-override worker.enc.yaml worker.yaml > worker.enc.yaml
 sops -e --input-type yaml --filename-override talosconfig.enc.yaml talosconfig > talosconfig.enc.yaml
 sops -e --input-type yaml --filename-override kubeconfig.enc.yaml kubeconfig > kubeconfig.enc.yaml
 
-echo "Encrypted: controlplane.enc.yaml worker.enc.yaml talosconfig.enc.yaml kubeconfig.enc.yaml"
+echo "Encrypted: controlplane.enc.yaml controlplane-cp2.enc.yaml worker.enc.yaml talosconfig.enc.yaml kubeconfig.enc.yaml"

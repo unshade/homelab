@@ -39,22 +39,41 @@ Then, update `clusters/homelab/apps/cloudflared/configmap.yaml` with the new hos
 flux reconcile kustomization cloudflared --with-source
 ```
 
+## ZFS
+
+Run on the Proxmox host (`192.168.1.201`) — the `rw=` clause is a colon-separated ACL of every
+node IP allowed to mount the NFS export; add a new node's `/32` to the list rather than widening
+to a whole subnet:
+
+```bash
+zfs set sharenfs="rw=@192.168.1.252/32:@192.168.1.206/32,no_root_squash,no_subtree_check" Main/data
+```
+
 ## Cluster facts
 
 | | |
 |---|---|
 | Cluster name | `talos-proxmox-cluster` |
-| Node hostname | `talos-cp1` |
-| Node IP | `192.168.1.252` (static) |
-| Interface | `ens18` |
+| Nodes | `talos-cp1` (`192.168.1.252`), `talos-cp2` (`192.168.1.206`) — both static |
+| Interface | `ens18` (both nodes) |
 | Gateway | `192.168.1.254` |
 | Talos version | v1.13.5 |
 | Kubernetes version | v1.36.2 |
 | CNI | [Cilium](https://cilium.io) (replaces flannel), kube-proxy-replacement mode, LoadBalancer IPs via L2 announcement (replaces the never-installed MetalLB) — see [Networking: Cilium](#networking-cilium) |
-| Role | control-plane, with `allowSchedulingOnControlPlanes: true` so regular pods schedule on it too (it's the only node) |
-| Data disk | `sdb`, 430GB, XFS, mounted at `/var/mnt/data` (see Storage section) |
+| Role | both nodes are control-plane with `allowSchedulingOnControlPlanes: true`, so regular pods schedule on either |
+| Data disk | `sdb`, 430GB, XFS, mounted at `/var/mnt/data` on **each** node (see Storage section) — `longhorn-strict-local` volumes are pinned to whichever node the pod using them lands on, so both nodes need their own copy of this disk/mount, not a shared one |
 
-> The node's static IP (`192.168.1.252`) should be excluded from your router's DHCP pool so it never gets handed out to something else.
+> Both nodes' static IPs (`192.168.1.252`, `192.168.1.206`) should be excluded from your router's
+> DHCP pool so they never get handed out to something else.
+
+**Known gap:** `cluster.controlPlane.endpoint` (in both nodes' machine config) and Cilium's
+`k8sServiceHost` Helm value are still hardcoded to `192.168.1.252` — every node bootstraps its
+kube-apiserver connection through cp1 specifically. This isn't a problem day-to-day (once a node
+is up, `kubectl`/`talosctl` can reach it directly, and running pods don't route through this
+value), but if cp1 is down, a fresh Cilium agent or a from-scratch node join would have nothing to
+bootstrap against even though cp2 is healthy. Fixing this for real needs a floating VIP (Talos
+supports one natively) shared between control-plane nodes — not done yet, tracked here as a
+follow-up rather than solved as a side effect of adding cp2.
 
 ## Repo layout
 
@@ -230,6 +249,47 @@ reference back into `controlplane.yaml` for you. That has to be done by hand (an
 the file silently drifts from what's actually running — a fresh install from a stale
 `controlplane.yaml` would use the old image and come back without these extensions, even though
 `install.image` genuinely is the field meant to make this reproducible.
+
+**11. Added a second control-plane node (`talos-cp2`).** Unlike the very first node, the target
+state was known upfront, so this was one config push instead of the incremental DHCP→static→
+hostname dance step 4/5 went through. `talos/_out/controlplane-cp2.yaml` is a copy of
+`controlplane.yaml` — same cluster PKI/tokens/etcd CA (required to join the *same* cluster) —
+with only the `HostnameConfig` (`talos-cp2`) and the static IP (`192.168.1.206/24`) changed. The
+new VM turned out to have the exact same disk layout as cp1 (`sda` 64GB, `sdb` 430GB) and NIC
+name (`ens18`), confirmed read-only against the booted-but-unconfigured node before writing the
+config:
+```bash
+talosctl version --insecure -n 192.168.1.22          # confirms it's reachable in maintenance mode
+talosctl -n 192.168.1.22 --insecure get links         # confirms the interface name
+talosctl -n 192.168.1.22 disks --insecure             # confirms the disk layout
+```
+so the `UserVolumeConfig` (`/var/mnt/data`) and the custom installer image (with the iSCSI/util-linux
+extensions) were kept identical rather than dropped. One push did everything — install, network,
+hostname, PKI join — no separate reboot step needed this time since it all went in on the node's
+very first config application:
+```bash
+talosctl apply-config --insecure -n 192.168.1.22 -f talos/_out/controlplane-cp2.yaml
+```
+**`talosctl bootstrap` is never run again for additional control-plane nodes** — that command
+initializes etcd and only ever happens once, for the very first node in a cluster's life. A new
+control-plane node joins the existing etcd cluster automatically on boot because its config
+carries the same `cluster.id`/`cluster.secret`/etcd CA as the first node.
+
+Registered the new node as an additional `talosctl` target:
+```bash
+talosctl config endpoint 192.168.1.252 192.168.1.206
+talosctl config node 192.168.1.252 192.168.1.206
+```
+Verified with `talosctl etcd members` (both nodes listed, neither a learner), `kubectl get nodes`
+(both `Ready`, `control-plane`, no taint — workload scheduling just works, inherited from
+`allowSchedulingOnControlPlanes: true`), and confirmed Longhorn auto-discovered the new node's
+`/var/mnt/data/longhorn` disk and DaemonSets (Cilium, csi-driver-nfs, Longhorn) self-scheduled
+onto it with no manual intervention.
+
+Two things this did **not** fix, called out in the Cluster facts "Known gap" note above:
+`cluster.controlPlane.endpoint` and Cilium's `k8sServiceHost` are both still hardcoded to cp1's
+IP — real HA needs a floating VIP across control-plane nodes, which Talos supports but this
+change didn't set up.
 
 ## Networking: Cilium
 
