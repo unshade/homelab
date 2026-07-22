@@ -38,4 +38,8 @@ data:
         service: https://envoy-main-0d6e4079.envoy-gateway-system.svc.cluster.local:443
         originRequest:
           originServerName: seerr.nstnr.com
+      - hostname: prowlarr.nstnr.com
+        service: https://envoy-main-0d6e4079.envoy-gateway-system.svc.cluster.local:443
+        originRequest:
+          originServerName: prowlarr.nstnr.com
       - service: http_status:404

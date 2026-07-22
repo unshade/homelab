@@ -57,3 +57,30 @@ spec:
   name: seerr
   owner: seerr
   databaseReclaimPolicy: retain
+---
+# Prowlarr, like Sonarr/Radarr, needs two databases (main + log) — see
+# https://wiki.servarr.com/prowlarr/postgres-setup. The wiki's superuser note
+# for Prowlarr's housekeeping/vacuum task is deliberately not followed here —
+# plain owner role, same as radarr/sonarr, to avoid handing one app superuser
+# over the whole shared cluster.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: prowlarr-main
+spec:
+  cluster:
+    name: general-postgres
+  name: prowlarr-main
+  owner: prowlarr
+  databaseReclaimPolicy: retain
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: prowlarr-log
+spec:
+  cluster:
+    name: general-postgres
+  name: prowlarr-log
+  owner: prowlarr
+  databaseReclaimPolicy: retain

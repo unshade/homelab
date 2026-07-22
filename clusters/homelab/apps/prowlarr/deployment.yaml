@@ -1,0 +1,81 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prowlarr
+  labels:
+    app: prowlarr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prowlarr
+  template:
+    metadata:
+      labels:
+        app: prowlarr
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+        fsGroupChangePolicy: Always
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
+      containers:
+        - name: prowlarr
+          image: linuxserver/prowlarr:2.5.2
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+          - name: PUID
+            value: "1000"
+          - name: PGID
+            value: "1000"
+          - name: TZ
+            value: "Europe/Paris"
+          - name: S6_YES_I_WANT_A_WORLD_WRITABLE_RUN_BECAUSE_KUBERNETES
+            value: "1"
+          - name: S6_READ_ONLY_ROOT
+            value: "1"
+          - name: S6_VERBOSITY
+            value: "2"
+          - name: PROWLARR__POSTGRES__HOST
+            value: general-postgres-rw.postgres.svc.cluster.local
+          - name: PROWLARR__POSTGRES__PORT
+            value: "5432"
+          - name: PROWLARR__POSTGRES__USER
+            value: prowlarr
+          - name: PROWLARR__POSTGRES__PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: prowlarr-postgres-credentials
+                key: password
+          - name: PROWLARR__POSTGRES__MAINDB
+            value: prowlarr-main
+          - name: PROWLARR__POSTGRES__LOGDB
+            value: prowlarr-log
+          ports:
+            - name: http
+              containerPort: 9696
+          volumeMounts:
+          - name: config
+            mountPath: /config
+          - name: run
+            mountPath: /run
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: prowlarr-config
+        - name: run
+          emptyDir: {}

@@ -40,3 +40,17 @@ spec:
   databaseRoleReclaimPolicy: retain
   passwordSecret:
     name: seerr-postgres-credentials
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: prowlarr
+spec:
+  cluster:
+    name: general-postgres
+  name: prowlarr
+  login: true
+  createdb: false
+  databaseRoleReclaimPolicy: retain
+  passwordSecret:
+    name: prowlarr-postgres-credentials
