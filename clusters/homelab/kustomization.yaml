@@ -16,7 +16,6 @@ resources:
   - ./kustomizations/cluster-issuer.yaml
   - ./kustomizations/gateway.yaml
   - ./kustomizations/gateway-config.yaml
-  - ./kustomizations/private-bin.yaml
   - ./kustomizations/cloudflared.yaml
   - ./kustomizations/authentik.yaml
   - ./kustomizations/jellyfin.yaml
