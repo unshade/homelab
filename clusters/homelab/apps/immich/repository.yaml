@@ -1,0 +1,13 @@
+---
+# The chart moved to OCI-only distribution (no more HTTP helm repo) — see
+# https://github.com/immich-app/immich-charts.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: immich
+  namespace: immich
+spec:
+  interval: 1h
+  url: oci://ghcr.io/immich-app/immich-charts/immich
+  ref:
+    tag: "0.13.1"

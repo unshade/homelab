@@ -1,0 +1,16 @@
+---
+# Photo/video library — original assets, thumbnails, encoded video. NFS
+# doesn't hard-enforce this size, same reasoning as jellyfin-media; nominal
+# request, real ceiling is whatever the ZFS pool has. RWX since both the
+# server and (potentially) other replicas need concurrent access.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-library
+spec:
+  storageClassName: nfs
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 2Ti

@@ -1,0 +1,68 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: immich
+  namespace: immich
+spec:
+  interval: 1h
+  # Pinned explicitly (same reasoning as envoy-gateway) — the chart's own
+  # templates derive service/hostnames (immich-server, immich-valkey,
+  # immich-machine-learning) from .Release.Name, and Flux's default release
+  # naming doesn't reliably land on plain "immich".
+  releaseName: immich
+  chartRef:
+    kind: OCIRepository
+    name: immich
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      main:
+        containers:
+          main:
+            env:
+              DB_HOSTNAME: immich-postgres-rw
+              DB_USERNAME: immich
+              DB_DATABASE_NAME: immich
+              DB_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: immich-postgres-app
+                    key: password
+    immich:
+      persistence:
+        library:
+          existingClaim: immich-library
+    # Bundled job-queue redis — disabled by default in the chart, but
+    # required (nothing else provides REDIS_HOSTNAME).
+    valkey:
+      enabled: true
+    server:
+      controllers:
+        main:
+          containers:
+            main:
+              resources:
+                requests:
+                  cpu: 250m
+                  memory: 512Mi
+                limits:
+                  cpu: "2"
+                  memory: 2Gi
+    machine-learning:
+      controllers:
+        main:
+          containers:
+            main:
+              resources:
+                requests:
+                  cpu: 500m
+                  memory: 1Gi
+                limits:
+                  cpu: "4"
+                  memory: 4Gi

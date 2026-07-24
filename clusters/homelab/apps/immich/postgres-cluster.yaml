@@ -1,0 +1,63 @@
+---
+# Dedicated cluster (not the shared general-postgres) — Immich needs the
+# VectorChord extension for its ML embedding/similarity search, which the
+# shared cluster's stock postgres image doesn't have.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: immich-postgres
+spec:
+  instances: 2
+  storage:
+    size: 20Gi
+    storageClass: longhorn-strict-local
+  # Base image is CNPG's own postgres build (guaranteed compatible with the
+  # operator) plus VectorChord loaded declaratively as an OCI extension
+  # image, exactly as recommended in immich-charts' own reference manifest:
+  # https://github.com/immich-app/immich-charts/blob/main/local/cloudnative-pg.yaml
+  imageName: ghcr.io/cloudnative-pg/postgresql:18-standard-trixie
+  postgresql:
+    shared_preload_libraries:
+      - vchord.so
+    extensions:
+      - name: vchord
+        image:
+          reference: ghcr.io/tensorchord/vchord-scratch:pg18-v1.1.1
+        dynamic_library_path:
+          - /usr/lib/postgresql/18/lib
+        extension_control_path:
+          - /usr/share/postgresql/18/
+  bootstrap:
+    initdb:
+      database: immich
+      owner: immich
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+---
+# initdb above already creates the "immich" database/role; this layers the
+# extensions on top (same dual-declaration pattern as immich-charts' own
+# example, which does the same thing for its default "app" database).
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: immich-database
+spec:
+  cluster:
+    name: immich-postgres
+  name: immich
+  owner: immich
+  databaseReclaimPolicy: retain
+  extensions:
+    - name: vector
+      ensure: present
+    - name: vchord
+      ensure: present
+    - name: earthdistance
+      ensure: present
+    - name: cube
+      ensure: present
