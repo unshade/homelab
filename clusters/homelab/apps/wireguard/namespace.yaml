@@ -1,0 +1,9 @@
+---
+# privileged: the initContainer needs NET_ADMIN to create a kernel WireGuard
+# interface, which baseline/restricted PSA levels disallow.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: wireguard
+  labels:
+    pod-security.kubernetes.io/enforce: privileged

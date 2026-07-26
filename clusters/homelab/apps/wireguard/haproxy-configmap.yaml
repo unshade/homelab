@@ -1,0 +1,37 @@
+---
+# Second hop of the double-hop PROXY protocol relay (VPS HAProxy -> here ->
+# Envoy Gateway). accept-proxy parses the incoming header from the VPS and
+# overrides HAProxy's notion of the connection's source address; send-proxy-v2
+# on the backend re-emits that (original client) address, not this pod's own
+# WireGuard peer address. Frontends bind the WireGuard address specifically
+# (not 0.0.0.0) so this is only reachable via the tunnel.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wireguard-haproxy-config
+data:
+  haproxy.cfg: |
+    global
+        maxconn 2048
+
+    defaults
+        mode tcp
+        timeout connect 5s
+        timeout client 30s
+        timeout server 30s
+        log stdout format raw local0
+        option tcplog
+
+    frontend https_in
+        bind 10.10.10.1:443 accept-proxy
+        default_backend envoy_https
+
+    frontend http_in
+        bind 10.10.10.1:80 accept-proxy
+        default_backend envoy_http
+
+    backend envoy_https
+        server envoy envoy-main-0d6e4079.envoy-gateway-system.svc.cluster.local:443 send-proxy-v2 check
+
+    backend envoy_http
+        server envoy envoy-main-0d6e4079.envoy-gateway-system.svc.cluster.local:80 send-proxy-v2 check

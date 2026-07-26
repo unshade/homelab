@@ -1,0 +1,23 @@
+---
+# Trusts an incoming PROXY protocol header (v1/v2, auto-detected) on the
+# Gateway's listeners and uses it as the real client address (X-Forwarded-For
+# etc), instead of whatever connected directly to Envoy.
+#
+# optional: true is deliberate for a staged rollout: requests WITHOUT a PROXY
+# header (e.g. cloudflared, today, or the http-to-https-redirect check) are
+# still accepted, just without real-IP extraction. Once cloudflared is
+# removed and the VPS is confirmed to be the only path in, this can be
+# tightened to optional: false - until then, `optional: true` also means any
+# LAN host that can reach the Gateway directly could send a forged header;
+# low severity on a home LAN, but worth knowing.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: ClientTrafficPolicy
+metadata:
+  name: vps-proxy-protocol
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: main
+  proxyProtocol:
+    optional: true

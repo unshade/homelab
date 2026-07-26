@@ -11,3 +11,7 @@ secrets
 # Decrypted copies of *-sops.yaml secrets (see scripts/decrypt-sops-secrets.sh) -
 # convenience-only, regenerated locally, never committed.
 *-sops.dec.yaml
+
+# VPS's WireGuard private key - not part of the Talos-managed fleet, cheap to
+# regenerate if lost, so no SOPS backup (see vps/README.md).
+vps/wireguard/wg0.conf

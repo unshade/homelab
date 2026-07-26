@@ -1,0 +1,17 @@
+services:
+  haproxy:
+    image: haproxy:lts-alpine
+    container_name: haproxy
+    restart: unless-stopped
+    # host networking: needs to bind the public IP on 80/443 directly, and
+    # reach the WireGuard-only destination (10.10.10.1) which only exists in
+    # the host's own network namespace (wg-quick runs natively, not in a
+    # container - see ../wireguard/).
+    network_mode: host
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

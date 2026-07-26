@@ -1,0 +1,64 @@
+---
+# Single replica, matching cloudflared's own current replicas: 1 - no
+# redundancy attempted here (documented gap, see README).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wireguard
+  labels:
+    app: wireguard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wireguard
+  template:
+    metadata:
+      labels:
+        app: wireguard
+    spec:
+      # wg-quick creates a real netlink device in the initContainer; it
+      # persists in the pod's shared network namespace for the main
+      # container to use once the initContainer exits (initContainers
+      # always finish before the main container starts).
+      initContainers:
+        - name: wireguard-up
+          image: linuxserver/wireguard:1.0.20260223
+          command: ["wg-quick", "up", "wg0"]
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN
+          volumeMounts:
+            - name: wg-config
+              mountPath: /etc/wireguard
+              readOnly: true
+      containers:
+        - name: haproxy
+          image: haproxy:lts-alpine
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              add:
+                - NET_BIND_SERVICE
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          volumeMounts:
+            - name: haproxy-config
+              mountPath: /usr/local/etc/haproxy
+              readOnly: true
+      volumes:
+        - name: wg-config
+          secret:
+            secretName: wireguard-config
+            defaultMode: 0400
+        - name: haproxy-config
+          configMap:
+            name: wireguard-haproxy-config

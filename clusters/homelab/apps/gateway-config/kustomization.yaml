@@ -7,3 +7,4 @@ resources:
   - gateway-class.yaml
   - gateway.yaml
   - http-to-https.yaml
+  - client-traffic-policy.yaml
