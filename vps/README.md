@@ -24,10 +24,21 @@ dials out to it, so no other inbound port is needed.
 
 ## 2. HAProxy (Docker)
 
+The container runs as a non-root user (`haproxy`) internally, and with `network_mode: host`
+there's no container-scoped network namespace for a capability/sysctl to cleanly apply to —
+`cap_add: NET_BIND_SERVICE` alone isn't reliably enough for binding ports <1024 in this setup.
+Lower the privileged-port threshold on the host itself instead (fine here since this VPS's only
+job is running this HAProxy):
+
+```bash
+sudo sysctl -w net.ipv4.ip_unprivileged_port_start=0
+echo 'net.ipv4.ip_unprivileged_port_start=0' | sudo tee /etc/sysctl.d/99-unprivileged-ports.conf
+```
+
 ```bash
 cd haproxy
-docker compose up -d
-docker compose logs -f
+sudo docker compose up -d
+sudo docker compose logs -f
 ```
 
 Test end-to-end *before* touching DNS (once the in-cluster tunnel is confirmed up):

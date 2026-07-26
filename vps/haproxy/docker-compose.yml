@@ -8,6 +8,11 @@ services:
     # the host's own network namespace (wg-quick runs natively, not in a
     # container - see ../wireguard/).
     network_mode: host
+    # The official image drops root privileges internally (master-worker,
+    # runs as the haproxy user) - without this it can't bind ports <1024
+    # even with host networking.
+    cap_add:
+      - NET_BIND_SERVICE
     volumes:
       - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     logging:
