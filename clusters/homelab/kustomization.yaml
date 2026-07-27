@@ -17,7 +17,6 @@ resources:
   - ./kustomizations/gateway.yaml
   - ./kustomizations/gateway-config.yaml
   - ./kustomizations/wireguard.yaml
-  - ./kustomizations/cloudflared.yaml
   - ./kustomizations/authentik.yaml
   - ./kustomizations/jellyfin.yaml
   - ./kustomizations/radarr.yaml
