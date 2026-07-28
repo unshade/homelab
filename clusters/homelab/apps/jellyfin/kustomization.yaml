@@ -9,3 +9,4 @@ resources:
   - deployment.yaml
   - service.yaml
   - route.yaml
+  - block-metrics-filter.yaml

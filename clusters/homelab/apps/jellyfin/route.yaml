@@ -11,6 +11,16 @@ spec:
   hostnames:
     - "jellyfin.nstnr.com"
   rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /metrics
+      filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: gateway.envoyproxy.io
+            kind: HTTPRouteFilter
+            name: block-metrics
     - backendRefs:
         - group: ""
           kind: Service
