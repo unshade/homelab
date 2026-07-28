@@ -1,0 +1,10 @@
+---
+# privileged: prometheus-node-exporter's DaemonSet needs hostNetwork,
+# hostPID, and hostPath mounts of /proc,/sys to read host metrics -
+# disallowed under baseline/restricted PSA.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
