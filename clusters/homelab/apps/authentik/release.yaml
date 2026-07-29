@@ -49,8 +49,10 @@ spec:
       replicas: 1
       resources:
         requests:
+          # Actual usage runs ~700Mi - the old 512Mi request was under
+          # real usage, bumped so the scheduler reserves what's used.
           cpu: 500m
-          memory: 512Mi
+          memory: 768Mi
         limits:
           cpu: "2"
           memory: 2Gi
@@ -78,8 +80,9 @@ spec:
       replicas: 1
       resources:
         requests:
+          # Actual usage runs ~285Mi, slightly above the old 256Mi request.
           cpu: 100m
-          memory: 256Mi
+          memory: 320Mi
         limits:
           cpu: 500m
           memory: 1Gi

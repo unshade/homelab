@@ -44,9 +44,22 @@ spec:
         library:
           existingClaim: immich-library
     # Bundled job-queue redis — disabled by default in the chart, but
-    # required (nothing else provides REDIS_HOSTNAME).
+    # required (nothing else provides REDIS_HOSTNAME). No resources were
+    # ever set (chart default) - actual usage is ~15Mi, tiny, just bounding
+    # it for hygiene.
     valkey:
       enabled: true
+      controllers:
+        main:
+          containers:
+            main:
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 16Mi
+                limits:
+                  cpu: 100m
+                  memory: 64Mi
     server:
       controllers:
         main:
@@ -54,8 +67,12 @@ spec:
             main:
               resources:
                 requests:
+                  # Actual usage runs ~1.4Gi, well above the old 512Mi
+                  # request - bumped so the scheduler reserves what's
+                  # really used. Limit left alone (deliberately generous
+                  # for large library imports).
                   cpu: 250m
-                  memory: 512Mi
+                  memory: 1Gi
                 limits:
                   cpu: "4"
                   memory: 10Gi
@@ -66,8 +83,12 @@ spec:
             main:
               resources:
                 requests:
-                  cpu: 500m
-                  memory: 1Gi
+                  # Idles around 250Mi/low-cpu; the old 1Gi/500m request
+                  # was ~4x actual idle usage. Limit stays generous - ML
+                  # jobs (face detection, embeddings) genuinely spike hard
+                  # during bulk imports.
+                  cpu: 200m
+                  memory: 512Mi
                 limits:
                   cpu: "4"
                   memory: 10Gi

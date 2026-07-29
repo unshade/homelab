@@ -13,8 +13,11 @@ spec:
       owner: authentik
   resources:
     requests:
-      cpu: 500m
-      memory: 512Mi
+      # Actual usage: ~35m cpu, 107-240Mi mem across both instances - the
+      # old 500m/512Mi request was way oversized on both axes. Matches
+      # general-postgres's already-proven sizing.
+      cpu: 100m
+      memory: 256Mi
     limits:
       cpu: "2"
       memory: 2Gi

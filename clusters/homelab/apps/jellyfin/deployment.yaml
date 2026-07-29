@@ -38,8 +38,10 @@ spec:
               mountPath: /media
           resources:
             requests:
-              cpu: 500m
-              memory: 1Gi
+              # Idle actual usage is ~425Mi - the old 1Gi request was
+              # >2x that. Limit left generous for active transcode bursts.
+              cpu: 250m
+              memory: 512Mi
             limits:
               cpu: "3"
               memory: 5Gi
