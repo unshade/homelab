@@ -40,8 +40,6 @@ spec:
                 - NET_ADMIN
                 - CHOWN
                 - DAC_OVERRIDE
-              drop:
-                - ALL
           env:
             - name: VPN_SERVICE_PROVIDER
               value: nordvpn
