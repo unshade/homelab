@@ -1,0 +1,16 @@
+---
+# NodePort: reachable from other pods (radarr/sonarr/prowlarr configuring
+# it as a download client) via the ClusterIP a NodePort Service still gets,
+# and from the LAN via <node-ip>:<nodePort> - no public route at all.
+apiVersion: v1
+kind: Service
+metadata:
+  name: qbittorrent
+spec:
+  type: NodePort
+  ports:
+    - name: webui
+      port: 8080
+      targetPort: webui
+  selector:
+    app: qbittorrent

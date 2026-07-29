@@ -10,3 +10,7 @@ resources:
   - service.yaml
   - route.yaml
   - block-metrics-filter.yaml
+  - qbittorrent-secret-sops.yaml
+  - qbittorrent-config-pvc.yaml
+  - qbittorrent-deployment.yaml
+  - qbittorrent-service.yaml

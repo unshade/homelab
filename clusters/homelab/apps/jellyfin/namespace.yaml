@@ -1,5 +1,13 @@
 ---
+# No PSA level was ever set here, meaning this namespace is already
+# unrestricted by Kubernetes' own default (absent an explicit label, the
+# built-in admission controller doesn't enforce anything) - this label just
+# makes that explicit. Needed for real: qbittorrent's gluetun sidecar
+# requires NET_ADMIN for its VPN/firewall setup, which baseline/restricted
+# PSA levels disallow.
 apiVersion: v1
 kind: Namespace
 metadata:
   name: jellyfin
+  labels:
+    pod-security.kubernetes.io/enforce: privileged

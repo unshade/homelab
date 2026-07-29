@@ -1,0 +1,123 @@
+---
+# All containers in a pod already share one network namespace in
+# Kubernetes - no special "route through gluetun" wiring needed beyond
+# putting qbittorrent in the same pod. gluetun's firewall (on by default,
+# fails closed) then applies to qbittorrent's traffic automatically: if the
+# VPN tunnel drops, qbittorrent simply loses connectivity rather than
+# leaking traffic via the pod's normal interface.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qbittorrent
+  labels:
+    app: qbittorrent
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: qbittorrent
+  template:
+    metadata:
+      labels:
+        app: qbittorrent
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: gluetun
+          image: qmcgaw/gluetun:v3.41.2
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN
+              drop:
+                - ALL
+          env:
+            - name: VPN_SERVICE_PROVIDER
+              value: nordvpn
+            - name: VPN_TYPE
+              value: openvpn
+            - name: OPENVPN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: qbittorrent-vpn-credentials
+                  key: openvpn-user
+            - name: OPENVPN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: qbittorrent-vpn-credentials
+                  key: openvpn-password
+            # Switzerland - closer than France for this connection.
+            # Change or unset for auto/nearest selection.
+            - name: SERVER_COUNTRIES
+              value: Switzerland
+            # Fails closed by default (FIREWALL=on) - only these subnets
+            # plus the VPN tunnel itself get outbound access. Covers the
+            # cluster pod/service CIDRs (10.244.0.0/16, 10.96.0.0/12, both
+            # within 10.0.0.0/8) so radarr/sonarr/prowlarr can still reach
+            # qbittorrent's API, the home LAN (for the NodePort below), and
+            # 1.1.1.1 for gluetun's own DNS resolution before the tunnel is
+            # up (that one bootstrap connection necessarily bypasses it).
+            - name: FIREWALL_OUTBOUND_SUBNETS
+              value: "10.0.0.0/8,192.168.1.0/24,1.1.1.1/32"
+            - name: FIREWALL_INPUT_PORTS
+              value: "8080"
+            - name: DNS_ADDRESS
+              value: "1.1.1.1"
+            - name: TZ
+              value: Europe/Paris
+          volumeMounts:
+            - name: dev-tun
+              mountPath: /dev/net/tun
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+        - name: qbittorrent
+          image: linuxserver/qbittorrent:5.2.3
+          securityContext:
+            allowPrivilegeEscalation: false
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: TZ
+              value: Europe/Paris
+            - name: WEBUI_PORT
+              value: "8080"
+          ports:
+            - name: webui
+              containerPort: 8080
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: qbittorrent-config
+        # Same PVC radarr/sonarr already mount at /data - needed so
+        # completed-download imports can hardlink instead of copy (only
+        # works within the same filesystem).
+        - name: data
+          persistentVolumeClaim:
+            claimName: jellyfin-media
+        - name: dev-tun
+          hostPath:
+            path: /dev/net/tun
+            type: CharDevice
