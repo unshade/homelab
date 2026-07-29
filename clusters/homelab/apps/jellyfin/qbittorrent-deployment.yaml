@@ -27,10 +27,19 @@ spec:
       containers:
         - name: gluetun
           image: qmcgaw/gluetun:v3.41.2
+          # Minimal set, verified live (not guessed): NET_ADMIN alone hit
+          # "chown ... operation not permitted" writing the OpenVPN config;
+          # adding CHOWN got past that but then hit a permission-denied
+          # reading/rewriting that same file (gluetun re-chowns it between
+          # its root phase and exec'ing openvpn as a lower-priv user) -
+          # DAC_OVERRIDE fixed that. All three together got OpenVPN
+          # actually running and attempting a real TLS handshake.
           securityContext:
             capabilities:
               add:
                 - NET_ADMIN
+                - CHOWN
+                - DAC_OVERRIDE
               drop:
                 - ALL
           env:
