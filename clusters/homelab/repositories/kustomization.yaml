@@ -10,4 +10,3 @@ resources:
   - ./helm/authentik.yaml
   - ./helm/metrics-server.yaml
   - ./helm/csi-driver-nfs.yaml
-  - ./helm/prometheus-community.yaml
