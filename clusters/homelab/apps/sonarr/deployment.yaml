@@ -7,6 +7,10 @@ metadata:
     app: sonarr
 spec:
   replicas: 1
+  # sonarr-config is ReadWriteOnce - see jellyfin/deployment.yaml for why
+  # this matters (RollingUpdate deadlocks on RWO volumes).
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: sonarr

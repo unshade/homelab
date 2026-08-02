@@ -7,6 +7,12 @@ metadata:
     app: jellyfin
 spec:
   replicas: 1
+  # jellyfin-config is ReadWriteOnce - RollingUpdate tries to start the new
+  # pod before killing the old one, which deadlocks forever on that volume
+  # (new pod stuck ContainerCreating since the old pod still holds the RWO
+  # attachment). Recreate tears down the old pod first.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: jellyfin
