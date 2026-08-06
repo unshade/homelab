@@ -1,5 +1,5 @@
-# Talos: everything talos.sh generates - fully throwaway, regenerated from
-# talos/secrets-sops-all.yaml + talos/patches/ on demand. Only
+# Talos: everything generated via the commands in talos/README.md - fully throwaway,
+# regenerated from talos/secrets-sops-all.yaml + talos/patches/ on demand. Only
 # talos/kubeconfig.enc.yaml (see talos/scripts/) and talos/secrets-sops-all.yaml
 # are committed.
 talos/out/
