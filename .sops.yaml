@@ -1,5 +1,12 @@
 creation_rules:
-  - path_regex: talos/_out/.*\.enc\.yaml$
+  - path_regex: talos/.*\.enc\.yaml$
+    pgp: 0838E38422232D44B96B6C7659A7C95E7A016E5A
+  # Whole-document encryption, like the rule above - the default -sops rule
+  # below only encrypts keys literally named data/stringData/secrets, which
+  # would leave a Talos secrets bundle's cluster.id/cluster.secret/certs.*
+  # sitting in git as plaintext (the CA keys aren't under any of those key
+  # names). "-sops-all" is the deliberate signal for "encrypt everything".
+  - path_regex: talos/secrets-sops-all\.yaml$
     pgp: 0838E38422232D44B96B6C7659A7C95E7A016E5A
   - pgp: >-
       0838E38422232D44B96B6C7659A7C95E7A016E5A

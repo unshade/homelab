@@ -1,0 +1,60 @@
+# Shared Talos machine config patch, applied to every node via
+# `--config-patch @patches/common.yaml` on `talosctl gen config` (see
+# README's "Changing the machine config" section for the exact commands).
+#
+# Deliberately minimal: only fields that talosctl gen config does NOT already
+# default to (verified live, by generating a config with no patches at all
+# and diffing against this) are listed here. kubelet.image/
+# defaultRuntimeSeccompProfileEnabled/disableManifestsDirectory,
+# features.diskQuotaSupport/kubePrism/hostDNS, install.wipe/
+# grubUseUKICmdline, nodeLabels, and the k8s component apiServer/
+# controllerManager/scheduler/proxy image pins are all already talosctl's
+# own defaults - restating a default here wouldn't be a no-op, since
+# `--config-patch` merges into lists rather than replacing them (that's
+# what caused the admissionControl duplication bug, below).
+machine:
+  kubelet:
+    # Bind-mounts the /var/mnt/data SSD into the kubelet's own mount namespace
+    # so hostPath-based pods (Longhorn's engine/replica pods) can actually see
+    # it - paths on the Talos host aren't visible inside the kubelet container
+    # otherwise.
+    extraMounts:
+      - destination: /var/mnt/data
+        type: bind
+        source: /var/mnt/data
+        options:
+          - bind
+          - rshared
+          - rw
+  install:
+    disk: /dev/sda
+    # Custom schematic (see schematic.yaml): qemu-guest-agent + iscsi-tools +
+    # util-linux-tools (iscsi/util-linux for Longhorn). Resolved by hand
+    # against factory.talos.dev - see README for the exact command to
+    # re-resolve this if schematic.yaml ever changes, or for a node that
+    # needs a different extension set.
+    image: factory.talos.dev/installer/53513e54bb39202f35694412577a6bc53d484744d35a126e5d42ef34785c0d83:v1.13.5
+cluster:
+  network:
+    cni:
+      name: none # Cilium is installed via Flux HelmRelease instead.
+  proxy:
+    disabled: true # Cilium runs in kube-proxy-replacement mode instead.
+  # Allows running workload on control-plane nodes - both nodes are, there
+  # are no separate workers.
+  allowSchedulingOnControlPlanes: true
+---
+apiVersion: v1alpha1
+kind: UserVolumeConfig
+# Name of the volume - determines the mount path (/var/mnt/<name>). Identical
+# on both nodes today.
+name: data
+provisioning:
+  diskSelector:
+    # Matches the disk Talos is NOT installed on (the 430GB data disk) -
+    # stable even if device naming shifts, since sda is always the system
+    # disk.
+    match: '!system_disk'
+  minSize: 400GB
+filesystem:
+  type: xfs

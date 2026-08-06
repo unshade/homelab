@@ -1,0 +1,11 @@
+# The Image Factory (factory.talos.dev) input that produced the schematic ID
+# baked into patches/common.yaml's machine.install.image. Not consumed by
+# anything automatically - this is documentation of what's in that image,
+# and the input to re-resolving it by hand if the extension list changes.
+# See README's "Changing the machine config" section for the exact command.
+customization:
+  systemExtensions:
+    officialExtensions:
+      - siderolabs/qemu-guest-agent
+      - siderolabs/iscsi-tools      # iSCSI, required by Longhorn's V1 engine
+      - siderolabs/util-linux-tools # fstrim/nsenter, required by Longhorn

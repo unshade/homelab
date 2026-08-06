@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Re-encrypts the plaintext files in talos/_out/ into their committed .enc.yaml
-# counterparts. Run this after any change to controlplane.yaml, worker.yaml,
-# talosconfig, or kubeconfig.
+# Re-encrypts talos/out/kubeconfig into the committed talos/kubeconfig.enc.yaml.
+# Run this after './talos.sh kubeconfig'.
+#
+# Machine configs are no longer handled here - see talos/secrets-sops-all.yaml
+# (the cluster PKI, committed encrypted, generated once ever) and
+# talos/patches/ (everything else, plaintext, not secret). Full per-node
+# configs are regenerated on demand via './talos.sh render' into the
+# gitignored talos/out/, never committed.
 set -euo pipefail
-cd "$(dirname "$0")/../_out"
+cd "$(dirname "$0")/.."
 
-sops -e --filename-override controlplane.enc.yaml controlplane.yaml > controlplane.enc.yaml
-sops -e --filename-override controlplane-cp2.enc.yaml controlplane-cp2.yaml > controlplane-cp2.enc.yaml
-sops -e --filename-override worker.enc.yaml worker.yaml > worker.enc.yaml
-sops -e --input-type yaml --filename-override talosconfig.enc.yaml talosconfig > talosconfig.enc.yaml
-sops -e --input-type yaml --filename-override kubeconfig.enc.yaml kubeconfig > kubeconfig.enc.yaml
+sops -e --input-type yaml --filename-override kubeconfig.enc.yaml out/kubeconfig > kubeconfig.enc.yaml
 
-echo "Encrypted: controlplane.enc.yaml controlplane-cp2.enc.yaml worker.enc.yaml talosconfig.enc.yaml kubeconfig.enc.yaml"
+echo "Encrypted: kubeconfig.enc.yaml"

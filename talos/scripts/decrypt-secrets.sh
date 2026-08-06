@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
-# Restores the plaintext files in talos/_out/ from the committed .enc.yaml
-# copies. Run this after a fresh git clone, before using talosctl/kubectl.
+# Restores talos/out/kubeconfig from the committed talos/kubeconfig.enc.yaml.
+# Run this after a fresh git clone, before using kubectl.
+#
+# talosctl access needs one more step first: './talos.sh render' (which
+# itself decrypts talos/secrets-sops-all.yaml) to produce talos/out/talosconfig
+# and the per-node configs - those are never committed, only regenerated.
 set -euo pipefail
-cd "$(dirname "$0")/../_out"
+cd "$(dirname "$0")/.."
 
-sops -d controlplane.enc.yaml > controlplane.yaml
-sops -d controlplane-cp2.enc.yaml > controlplane-cp2.yaml
-sops -d worker.enc.yaml > worker.yaml
-sops -d talosconfig.enc.yaml > talosconfig
-sops -d kubeconfig.enc.yaml > kubeconfig
-chmod 600 kubeconfig
+mkdir -p out
+chmod 700 out
+sops -d kubeconfig.enc.yaml > out/kubeconfig
+chmod 600 out/kubeconfig
 
-echo "Decrypted: controlplane.yaml controlplane-cp2.yaml worker.yaml talosconfig kubeconfig"
+echo "Decrypted: out/kubeconfig"

@@ -1,10 +1,8 @@
-# Talos generated secrets - plaintext versions never get committed.
-# Only the .sops.yaml-encrypted copies (talos/_out/*.enc.yaml) are versioned.
-talos/_out/controlplane.yaml
-talos/_out/controlplane-cp2.yaml
-talos/_out/worker.yaml
-talos/_out/talosconfig
-talos/_out/kubeconfig
+# Talos: everything talos.sh generates - fully throwaway, regenerated from
+# talos/secrets-sops-all.yaml + talos/patches/ on demand. Only
+# talos/kubeconfig.enc.yaml (see talos/scripts/) and talos/secrets-sops-all.yaml
+# are committed.
+talos/out/
 
 secrets
 

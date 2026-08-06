@@ -79,48 +79,77 @@ follow-up rather than solved as a side effect of adding cp2.
 
 ```
 talos/
-  _out/
-    controlplane.yaml       # plaintext machine config (gitignored, has private keys)
-    controlplane.enc.yaml   # sops-encrypted version (committed)
-    worker.yaml / worker.enc.yaml   # not used (single-node), kept for reference
-    talosconfig / talosconfig.enc.yaml   # talosctl client credentials
-    kubeconfig / kubeconfig.enc.yaml     # kubectl client credentials
+  patches/
+    common.yaml                # shared by every node - install image, kubelet extraMounts,
+                                # features, the data-disk UserVolumeConfig. A real Talos
+                                # machine-config patch, applied via --config-patch.
+    talos-cp1.yaml              # per-node patch: static IP + hostname, hand-written
+    talos-cp2.yaml              # same, for the second node
+  schematic.yaml                # Image Factory input that produced the schematic ID baked
+                                # into common.yaml's install.image - documentation + the
+                                # input to re-resolving it by hand, not consumed automatically
+  secrets-sops-all.yaml         # the cluster PKI/tokens (talosctl gen-secrets output),
+                                # generated exactly once ever, sops-encrypted, committed
+  kubeconfig.enc.yaml           # sops-encrypted kubectl client credentials (committed)
+  out/                          # gitignored, throwaway - talos-cp1.yaml, talos-cp2.yaml (full
+                                # per-node machine configs), talosconfig, kubeconfig
   scripts/
-    decrypt-secrets.sh      # sops -d the .enc.yaml files into plaintext, for local use
-    encrypt-secrets.sh      # sops -e the plaintext files back into .enc.yaml, before commit
-.sops.yaml                  # tells sops which GPG key encrypts *.enc.yaml files
-.gitignore                  # excludes the plaintext secret files from git
+    decrypt-secrets.sh          # sops -d kubeconfig.enc.yaml into out/kubeconfig
+    encrypt-secrets.sh          # sops -e out/kubeconfig back into kubeconfig.enc.yaml
+.sops.yaml                      # tells sops which GPG key encrypts which files, and how much
+                                # of each file (see below - this matters)
+.gitignore                      # excludes talos/out/ from git
 ```
+
+No wrapper script generates anything here - every step is a plain, documented `talosctl`
+command (see "Changing the machine config" below), run by hand. The only things committed are
+either a genuine secret or a fact that can't be regenerated (a node's static IP, its hostname,
+in its own patch file); the full per-node machine config - same shape Talos actually consumes,
+~400 lines each - is assembled on demand from `patches/common.yaml` + a node's own patch file
++ the secrets bundle, and thrown away freely.
 
 ## Secrets: how this is versioned
 
-`controlplane.yaml`, `talosconfig`, and `kubeconfig` all contain real private keys, cluster
-tokens, and client certs in plaintext — never committed as-is. Instead:
+The cluster's PKI (etcd CA, Kubernetes CA, aggregator CA, service-account key, OS CA) and
+tokens live in `talos/secrets-sops-all.yaml`, generated **once, ever**, via `talosctl gen
+secrets`. Re-running that against a running cluster would produce a *different* random PKI the
+nodes don't trust - that's not the same thing as rotating credentials on an existing one, so
+this command is never run again short of standing up a brand new cluster. `talos/kubeconfig.enc.yaml`
+is the other committed secret - unrelated to the PKI bundle (it's minted live from the running
+API server, not derivable from the secrets bundle alone).
 
-- They're encrypted with [SOPS](https://github.com/getsops/sops) against a GPG key, producing
-  the `*.enc.yaml` files that **are** committed to git.
+- Both are encrypted with [SOPS](https://github.com/getsops/sops) against a GPG key.
 - The key used is `noesteiner@proton.me` (fingerprint
   `0838E38422232D44B96B6C7659A7C95E7A016E5A`, labeled "Used for SOPS on kaastorama kube
   cluster" — reused here for consistency with the other cluster). `.sops.yaml` at the repo root
   pins this fingerprint as the encryption target.
+- **`.sops.yaml` has two different rules that matter here.** `talos/secrets-sops-all.yaml` gets
+  its own dedicated rule with no `encrypted_regex` (encrypts the *whole* document) — the
+  generic `*-sops.yaml` rule elsewhere in this repo only encrypts keys literally named
+  `data`/`stringData`/`secrets` (it's shaped for Kubernetes `Secret` manifests), which would
+  leave `cluster.id`/`cluster.secret`/every CA private key sitting in git in plaintext, since
+  none of those keys match that pattern. The `-sops-all` suffix is the deliberate signal for
+  "encrypt everything" — don't rename this file to plain `-sops.yaml`.
 - Decryption needs the matching **private** GPG key in your local keyring (`gpg
   --list-secret-keys`) and `gpg-agent` running — sops shells out to `gpg` automatically, no
   extra env vars needed. Make sure this private key is backed up (e.g. `gpg --export-secret-keys
   --armor 0838E38422232D44B96B6C7659A7C95E7A016E5A`, stored somewhere durable) — if you lose it
   and lose this machine, you can't decrypt the committed secrets and would have to regenerate
-  the cluster's PKI from scratch.
+  the cluster's PKI from scratch (which, per above, means every node needs re-imaging - it's not
+  a rotation, it's a new cluster identity).
 
 **After cloning this repo on a new machine:**
 ```bash
-brew install sops gnupg
+brew install sops gnupg talosctl yq
 # import your backed-up private key: gpg --import <key-file>
-talos/scripts/decrypt-secrets.sh
+talos/scripts/decrypt-secrets.sh   # gets you out/kubeconfig
+# then render the machine configs and talosconfig - see "Changing the machine config" below
 ```
 
-**After editing `controlplane.yaml` (or any plaintext file in `talos/_out/`):**
+**After fetching a new kubeconfig** (`talosctl -n 192.168.1.252 kubeconfig talos/out/kubeconfig --force`):
 ```bash
-talos/scripts/encrypt-secrets.sh
-git add talos/_out/*.enc.yaml
+cd talos && ./scripts/encrypt-secrets.sh
+git add kubeconfig.enc.yaml
 git commit -m "..."
 ```
 
@@ -291,6 +320,15 @@ Two things this did **not** fix, called out in the Cluster facts "Known gap" not
 IP — real HA needs a floating VIP across control-plane nodes, which Talos supports but this
 change didn't set up.
 
+**Note on the sequence above:** all of it happened by hand-editing the full
+`talos/_out/controlplane.yaml` / `controlplane-cp2.yaml`, which is genuinely how it went — this
+section is a historical record, not rewritten to match current tooling. Since then, the machine
+config has been restructured into `talos/patches/common.yaml` (shared) plus each node's own
+`talos/patches/talos-cp1.yaml`/`talos-cp2.yaml`, regenerated on demand via plain `talosctl`
+commands (see "Repo layout" and "Changing the machine config" above) — confirmed to reproduce
+the exact same config (semantic diff, then `talosctl validate`) before cutting over, so nothing
+above needed to actually change on the live nodes for the restructure itself.
+
 ## Networking: Cilium
 
 The cluster originally ran Talos's default CNI (flannel) and kube-proxy. MetalLB was planned for
@@ -329,7 +367,7 @@ operator:
 `k8sServiceHost`/`k8sServicePort` are mandatory in kube-proxy-replacement mode: without kube-proxy
 there's no ClusterIP-to-apiserver translation, so Cilium needs the real API endpoint directly.
 
-On the Talos side (`talos/_out/controlplane.yaml`), two fields turn off the defaults Cilium is
+On the Talos side (`talos/patches/common.yaml`), two fields turn off the defaults Cilium is
 replacing:
 ```yaml
 cluster:
@@ -398,7 +436,9 @@ way `kubectl explain` does for any other CRD, once the CRD is installed.
 ## Storage
 
 `UserVolumeConfig` is a **Talos** machine config document, not a Kubernetes resource — it lives
-in `controlplane.yaml` alongside `HostnameConfig`, and it's how Talos itself (not Kubernetes)
+in `talos/patches/common.yaml` (shared by both nodes, since both have the same disk layout;
+`HostnameConfig` is the one document that's genuinely per-node, hand-written in each node's own
+`talos/patches/talos-cp*.yaml`), and it's how Talos itself (not Kubernetes)
 declaratively owns a disk: which physical disk to use, what filesystem to put on it, where to
 mount it on the node. There is no `kubectl get uservolumeconfig` — the object doesn't exist in
 the Kubernetes API at all, only in Talos's own config/resource system on the node:
@@ -452,17 +492,19 @@ fundamentally can't offer — `sdb`/`/var/mnt/data` stays reserved for regular f
 
 ## Managing the cluster
 
-Two separate CLIs, two separate credential files:
+Two separate CLIs, two separate credential files, both under `talos/out/` (regenerate per
+"Changing the machine config" below / `talosctl kubeconfig` if missing — see "Repo layout"
+above):
 
 - **`talosctl`** — talks to the Talos OS itself (not Kubernetes): reboot, upgrade, disk/network
-  state, service health, logs. Uses `talos/_out/talosconfig`.
+  state, service health, logs. Uses `talos/out/talosconfig`.
 - **`kubectl`** — talks to the Kubernetes API: pods, deployments, services. Uses
-  `talos/_out/kubeconfig`.
+  `talos/out/kubeconfig`.
 
 Set these once per shell session so you don't have to pass flags every time:
 ```bash
-export TALOSCONFIG=talos/_out/talosconfig
-export KUBECONFIG=talos/_out/kubeconfig
+export TALOSCONFIG=talos/out/talosconfig
+export KUBECONFIG=talos/out/kubeconfig
 ```
 
 ### Day-to-day Talos commands
@@ -485,39 +527,75 @@ way to change anything about the OS (network, disks, kubelet, static pods, users
 etc.) is to edit the YAML and push the whole file back to the node. Talos diffs it against the
 running state and reconciles.
 
-Step by step, e.g. to change something in `controlplane.yaml`:
+The file you actually edit is almost never the full per-node config — it's `patches/common.yaml`
+(shared by both nodes) or, for something genuinely per-node (a new static IP, a disk override),
+that node's own `patches/talos-cp1.yaml`/`talos-cp2.yaml`. The full config is reassembled from
+those plus the secrets bundle via plain `talosctl` commands, no wrapper script; `talos/out/` is
+disposable output, not a source of truth.
+
+Step by step, e.g. to change something shared by both nodes:
 
 ```bash
-# 1. decrypt, if you don't already have the plaintext locally
-talos/scripts/decrypt-secrets.sh
+cd talos
 
-# 2. edit the file
-$EDITOR talos/_out/controlplane.yaml
+# 1. edit the patch, not a full per-node file
+$EDITOR patches/common.yaml
 
-# 3. push it to the node
-talosctl -n 192.168.1.252 apply-config -f talos/_out/controlplane.yaml
+# 2. regenerate the base config (both nodes' shared starting point)
+sops -d secrets-sops-all.yaml > out/.secrets.yaml
+talosctl gen config talos-proxmox-cluster https://192.168.1.252:6443 \
+  --with-secrets out/.secrets.yaml \
+  --kubernetes-version 1.36.2 \
+  --output-types controlplane,talosconfig \
+  --output out/base \
+  --config-patch @patches/common.yaml \
+  --force
+rm out/.secrets.yaml
+# gen config ships its own HostnameConfig document defaulted to auto: stable, which conflicts
+# with the explicit hostname in each node's own patch - strip it so the per-node patch is the
+# only source:
+yq -i 'select(.kind != "HostnameConfig")' out/base/controlplane.yaml
 
-# 4. confirm it actually applied (also useful right after any change):
+# 3. layer each node's own patch on top
+talosctl machineconfig patch out/base/controlplane.yaml --patch @patches/talos-cp1.yaml --output out/talos-cp1.yaml
+talosctl machineconfig patch out/base/controlplane.yaml --patch @patches/talos-cp2.yaml --output out/talos-cp2.yaml
+
+# 4. out/talos-cp1.yaml is plain YAML (gitignored, not itself encrypted) - read it, or diff
+#    it against a copy saved before this to see exactly what changed
+
+# 5. push it to a node, one at a time
+talosctl -n 192.168.1.252 apply-config -f out/talos-cp1.yaml
+
+# 6. confirm it actually applied (also useful right after any change)
 talosctl -n 192.168.1.252 services              # everything still Running/OK?
 kubectl get nodes                               # still Ready?
 
-# 5. re-encrypt and commit, so the change is captured in git
-talos/scripts/encrypt-secrets.sh
-git add talos/_out/*.enc.yaml
+# 7. repeat 5-6 for the other node, then commit the patch change (out/ isn't committed - the
+#    patches are what's versioned)
+git add patches/common.yaml
 git commit -m "describe the change"
 ```
 
-Most fields apply live in step 3 with no downtime (this is how the taint and static-IP changes
-above were done). A few — like the hostname — refuse to apply live and need
-`apply-config ... --mode=reboot` instead, which Talos will tell you if you hit it: the error
-says something like *"static hostname is already set"* rather than a generic failure. When in
-doubt, try without `--mode=reboot` first; it's a safe no-op error if a reboot turns out to be
-required, it doesn't apply half the change.
+Most fields apply live with no downtime (this is how the taint and static-IP changes described
+below, back when they were still done by hand, went in). A few — like the hostname — refuse to
+apply live and need `apply-config --mode=reboot` instead, which Talos will tell you if you hit
+it: the error says something like *"static hostname is already set"* rather than a generic
+failure. When in doubt, try without `--mode=reboot` first; it's a safe no-op error if a reboot
+turns out to be required, it doesn't apply half the change.
 
 `talosctl` also has a lower-level `talosctl edit mconfig -n 192.168.1.252` which opens the
 node's *live* config in `$EDITOR` and applies on save — convenient for a quick one-off tweak,
-but it bypasses the file in `talos/_out/`, so anything changed that way needs to be copied back
-into `controlplane.yaml` by hand afterwards or it'll silently drift from what's in git.
+but it bypasses `patches/common.yaml` entirely, so anything changed that way needs to be copied
+back into the patch by hand afterwards or the next regenerate-and-apply will silently revert it.
+
+**Re-resolving the install image** (only needed if `schematic.yaml`'s extension list changes,
+or a new/heterogeneous node needs a different one):
+```bash
+curl -X POST --data-binary @talos/schematic.yaml https://factory.talos.dev/schematics
+# {"id": "<schematic-id>", ...} - use it in patches/common.yaml (or a per-node patch, for a
+# node whose extensions genuinely differ) as:
+#   factory.talos.dev/installer/<schematic-id>:<talos_version>
+```
 
 ### Day-to-day kubectl commands
 
