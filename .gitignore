@@ -13,3 +13,12 @@ secrets
 # VPS's WireGuard private key - not part of the Talos-managed fleet, cheap to
 # regenerate if lost, so no SOPS backup (see vps/README.md).
 vps/wireguard/wg0.conf
+
+# Terraform (router/): local state, plugin cache, plans, and deployment-local
+# values (current WAN lease, WireGuard peer keys) - the encrypted state
+# (router/terraform-state.gpg) is what's committed, see router/README.md.
+router/.terraform/
+router/terraform.tfstate
+router/terraform.tfstate.backup
+router/*.tfplan
+router/terraform.tfvars

@@ -23,21 +23,13 @@ Trash flux :
 flux uninstall --namespace=flux-system --keep-namespace
 ```
 
-## Cloudflared
+## Ingress
 
-Add a new domain :
-
-```bash
-cloudflared tunnel route dns <tunnel-name> <hostname>
-```
-
-`tunnel-name` is `homelab` and `hostname` is the domain you want to add.
-
-Then, update `clusters/homelab/apps/cloudflared/configmap.yaml` with the new hostname and run :
-
-```bash
-flux reconcile kustomization cloudflared --with-source
-```
+Public entry is a VPS (HAProxy, TCP passthrough + PROXY protocol) over a WireGuard tunnel to a
+pod in-cluster, which relays to Envoy Gateway for TLS termination — replaces the old Cloudflare
+Tunnel setup. See [`vps/README.md`](vps/README.md) for the VPS side and
+`clusters/homelab/apps/wireguard/` for the cluster side. Adding a new hostname needs no changes
+here — just point DNS at the VPS IP and add the `HTTPRoute` in-cluster.
 
 ## ZFS
 
@@ -82,6 +74,13 @@ full historical log of how the cluster got bootstrapped and grew from one node t
 in [`talos/README.md`](talos/README.md) — that's the runbook to reach for when actually
 operating the cluster day to day. This file stays focused on architecture/design (below) and
 the facts that don't change often (above).
+
+## Router
+
+A Mikrotik router, managed with Terraform, is planned to sit behind the existing home network
+and host the homelab on its own isolated `10.200.0.0/24` segment — not deployed yet. See
+[`router/README.md`](router/README.md) for the Terraform config, setup steps, and the (currently
+unexecuted) checklist for migrating the Talos nodes onto it.
 
 ## Networking: Cilium
 

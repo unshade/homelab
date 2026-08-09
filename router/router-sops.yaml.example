@@ -1,0 +1,11 @@
+# Template for router-sops.yaml - copy this file, fill in real values, then
+# encrypt it (see router/README.md's "Secrets" section). Never commit the
+# plaintext version.
+secrets:
+  username: admin
+  password: CHANGE_ME
+  # Router's own WireGuard private key - generate with `wg genkey`. The
+  # matching public key goes in variables.tf's wg identity, un-encrypted
+  # (public keys aren't secret) if/when this router becomes a peer of
+  # something else later.
+  wg_private_key: CHANGE_ME
