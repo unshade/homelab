@@ -1,0 +1,38 @@
+---
+# Hand-crafted PersistentVolume, not dynamically provisioned - this is a Retain-policy
+# volume that outlived its original PV, re-pointed at nas's new 10.200.0.0/24 address
+# during the router migration (see router/README.md's Cutover checklist). The original
+# dynamically-provisioned PV had `server: 192.168.1.201` baked into its (immutable)
+# spec.persistentVolumeSource - Kubernetes doesn't allow editing that in place, so the old
+# PV was deleted (data untouched, `onDelete: retain` + `persistentVolumeReclaimPolicy:
+# Retain` both independently prevent the NFS subdirectory itself from being removed - see
+# https://kubernetes.io/docs/concepts/storage/persistent-volumes/#retain and
+# https://github.com/kubernetes-csi/csi-driver-nfs/blob/master/docs/driver-parameters.md)
+# and this one created in its place: identical `share`/`subDir` (the actual data location
+# on nas never changes), only `server` differs. `claimRef` pre-binds this PV to the exact
+# PVC in media-pvc.yaml, so Flux reapplying that PVC binds here instead of dynamically
+# provisioning a fresh, empty volume.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: jellyfin-media
+spec:
+  capacity:
+    storage: 5Ti
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: nfs
+  mountOptions:
+    - nfsvers=4
+  csi:
+    driver: nfs.csi.k8s.io
+    volumeHandle: 10.200.0.20#Main/data#jellyfin-jellyfin-media#jellyfin-media#retain
+    volumeAttributes:
+      server: 10.200.0.20
+      share: /Main/data
+      subDir: jellyfin-jellyfin-media
+      onDelete: retain
+  claimRef:
+    name: jellyfin-media
+    namespace: jellyfin

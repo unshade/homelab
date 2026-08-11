@@ -13,3 +13,7 @@ spec:
   resources:
     requests:
       storage: 5Ti
+  # Explicit, even though media-pv.yaml's claimRef alone is enough to bind here
+  # instead of dynamically provisioning a fresh volume - this makes the pairing
+  # obvious from this file alone, not just from reading the PV's side of it.
+  volumeName: jellyfin-media
