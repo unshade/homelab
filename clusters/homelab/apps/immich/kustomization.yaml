@@ -6,6 +6,7 @@ resources:
   - namespace.yaml
   - repository.yaml
   - postgres-cluster.yaml
+  - library-pv.yaml
   - library-pvc.yaml
   - release.yaml
   - route.yaml

@@ -14,3 +14,6 @@ spec:
   resources:
     requests:
       storage: 2Ti
+  # Explicit pairing with library-pv.yaml's claimRef - see jellyfin/media-pvc.yaml's
+  # comment for why both sides are set.
+  volumeName: immich-library

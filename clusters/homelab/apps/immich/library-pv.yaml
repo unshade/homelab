@@ -1,0 +1,29 @@
+---
+# Hand-crafted PersistentVolume, not dynamically provisioned - see
+# jellyfin/media-pv.yaml's comment for the full explanation (same pattern,
+# same migration). Identical share/subDir to the original PV, only `server`
+# differs - the actual data location on nas never changes.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: immich-library
+spec:
+  capacity:
+    storage: 2Ti
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: nfs
+  mountOptions:
+    - nfsvers=4
+  csi:
+    driver: nfs.csi.k8s.io
+    volumeHandle: 10.200.0.20#Main/data#immich-immich-library#immich-library#retain
+    volumeAttributes:
+      server: 10.200.0.20
+      share: /Main/data
+      subDir: immich-immich-library
+      onDelete: retain
+  claimRef:
+    name: immich-library
+    namespace: immich
