@@ -13,15 +13,16 @@ talos/
     common.yaml                # shared by every node - install image, kubelet extraMounts,
                                 # features, the data-disk UserVolumeConfig. A real Talos
                                 # machine-config patch, applied via --config-patch.
-    talos-cp1.yaml              # per-node patch: static IP + hostname, hand-written
-    talos-cp2.yaml              # same, for the second node
+    talos-cp1.yaml              # per-node patch: static IP + hostname, hand-written -
+                                 # the sole control-plane node
+    w-1.yaml                    # same, for the worker node
   schematic.yaml                # Image Factory input that produced the schematic ID baked
                                 # into common.yaml's install.image - documentation + the
                                 # input to re-resolving it by hand, not consumed automatically
   secrets-sops-all.yaml         # the cluster PKI/tokens (talosctl gen-secrets output),
                                 # generated exactly once ever, sops-encrypted, committed
   kubeconfig.enc.yaml           # sops-encrypted kubectl client credentials (committed)
-  out/                          # gitignored, throwaway - talos-cp1.yaml, talos-cp2.yaml (full
+  out/                          # gitignored, throwaway - talos-cp1.yaml, w-1.yaml (full
                                 # per-node machine configs), talosconfig, kubeconfig
   scripts/
     decrypt-secrets.sh          # sops -d kubeconfig.enc.yaml into out/kubeconfig
@@ -121,9 +122,14 @@ running state and reconciles.
 
 The file you actually edit is almost never the full per-node config — it's `patches/common.yaml`
 (shared by both nodes) or, for something genuinely per-node (a new static IP, a disk override),
-that node's own `patches/talos-cp1.yaml`/`talos-cp2.yaml`. The full config is reassembled from
+that node's own `patches/talos-cp1.yaml`/`patches/w-1.yaml`. The full config is reassembled from
 those plus the secrets bundle via plain `talosctl` commands, no wrapper script; `talos/out/` is
 disposable output, not a source of truth.
+
+**One asymmetry to know:** `talos-cp1` is a `controlplane`-type config, `w-1` is a `worker`-type
+one (see "What was done to get here" below for why there's only one control-plane) — these are
+two different `talosctl gen config --output-types` values, generated separately, even though
+both consume the exact same `patches/common.yaml`.
 
 Step by step, e.g. to change something shared by both nodes:
 
@@ -133,30 +139,38 @@ cd talos
 # 1. edit the patch, not a full per-node file
 $EDITOR patches/common.yaml
 
-# 2. regenerate the base config (both nodes' shared starting point)
+# 2. regenerate the base configs - one per machine type, both from the same common.yaml
 sops -d secrets-sops-all.yaml > out/.secrets.yaml
 talosctl gen config talos-proxmox-cluster https://192.168.1.252:6443 \
   --with-secrets out/.secrets.yaml \
   --kubernetes-version 1.36.2 \
   --output-types controlplane,talosconfig \
-  --output out/base \
+  --output out/base-cp \
+  --config-patch @patches/common.yaml \
+  --force
+talosctl gen config talos-proxmox-cluster https://192.168.1.252:6443 \
+  --with-secrets out/.secrets.yaml \
+  --kubernetes-version 1.36.2 \
+  --output-types worker,talosconfig \
+  --output out/base-worker \
   --config-patch @patches/common.yaml \
   --force
 rm out/.secrets.yaml
 # gen config ships its own HostnameConfig document defaulted to auto: stable, which conflicts
 # with the explicit hostname in each node's own patch - strip it so the per-node patch is the
 # only source:
-yq -i 'select(.kind != "HostnameConfig")' out/base/controlplane.yaml
+yq -i 'select(.kind != "HostnameConfig")' out/base-cp/controlplane.yaml
+yq -i 'select(.kind != "HostnameConfig")' out/base-worker/worker.yaml
 
-# 3. layer each node's own patch on top
-talosctl machineconfig patch out/base/controlplane.yaml --patch @patches/talos-cp1.yaml --output out/talos-cp1.yaml
-talosctl machineconfig patch out/base/controlplane.yaml --patch @patches/talos-cp2.yaml --output out/talos-cp2.yaml
+# 3. layer each node's own patch on top of its matching base type
+talosctl machineconfig patch out/base-cp/controlplane.yaml --patch @patches/talos-cp1.yaml --output out/talos-cp1.yaml
+talosctl machineconfig patch out/base-worker/worker.yaml --patch @patches/w-1.yaml --output out/w-1.yaml
 
 # 4. out/talos-cp1.yaml is plain YAML (gitignored, not itself encrypted) - read it, or diff
 #    it against a copy saved before this to see exactly what changed. Also worth running
 #    talosctl validate against it before pushing anything to a live node:
 talosctl validate --config out/talos-cp1.yaml --mode metal
-talosctl validate --config out/talos-cp2.yaml --mode metal
+talosctl validate --config out/w-1.yaml --mode metal
 
 # 5. push it to a node, one at a time
 talosctl -n 192.168.1.252 apply-config -f out/talos-cp1.yaml
@@ -166,7 +180,7 @@ talosctl -n 192.168.1.252 services              # everything still Running/OK?
 kubectl get nodes                               # still Ready?
 
 # 7. repeat 5-6 for the other node, then a final whole-cluster check
-talosctl etcd members                           # both nodes listed, neither a learner
+talosctl etcd members                           # cp1 only - w-1 isn't an etcd member
 talosctl -n 192.168.1.252,192.168.1.206 health   # everything OK or expected SKIP
 kubectl get pods -A | grep -v Running            # empty - nothing stuck
 
@@ -175,9 +189,9 @@ git add patches/common.yaml
 git commit -m "describe the change"
 ```
 
-Applying one node at a time and verifying in between (steps 5-6) matters specifically because
-both nodes are control-plane with no separate workers — if a bad config change breaks the
-second node too before you notice, there's nothing left healthy to recover from.
+Applying one node at a time and verifying in between (steps 5-6) still matters even with a
+single control-plane — a bad change to `common.yaml` would otherwise hit both nodes before you
+notice, taking out the worker along with the only control-plane.
 
 Most fields apply live with no downtime (this is how the taint and static-IP changes described
 in "What was done to get here" below, back when they were still done by hand, went in). A few —
@@ -385,10 +399,10 @@ Verified with `talosctl etcd members` (both nodes listed, neither a learner), `k
 `/var/mnt/data/longhorn` disk and DaemonSets (Cilium, csi-driver-nfs, Longhorn) self-scheduled
 onto it with no manual intervention.
 
-Two things this did **not** fix, called out in the root README's Cluster facts "Known gap" note:
-`cluster.controlPlane.endpoint` and Cilium's `k8sServiceHost` are both still hardcoded to cp1's
-IP — real HA needs a floating VIP across control-plane nodes, which Talos supports but this
-change didn't set up.
+Two things this did **not** fix: `cluster.controlPlane.endpoint` and Cilium's `k8sServiceHost`
+were both still hardcoded to cp1's IP — at the time this meant real HA would need a floating VIP
+across control-plane nodes. Moot as of step 13 below: going back to a single control-plane
+means there's only one node these could ever point to anyway.
 
 **12. Restructured the committed config from full per-node files into patches.** Steps 1-11
 above happened by hand-editing the full `talos/_out/controlplane.yaml` / `controlplane-cp2.yaml`
@@ -406,3 +420,71 @@ between the two. Confirmed afterwards with `talosctl etcd members` (both non-lea
 `talosctl health` (all `OK`/expected `SKIP`), and a cluster-wide sweep for non-`Running` pods
 (empty) — the restructure changed nothing about what's running, only how the same config is
 authored and regenerated going forward (see "Changing the machine config" above).
+
+**13. Converted `talos-cp2` into a worker (`w-1`), going back to a single control-plane.**
+Decided the 2-node etcd from step 11 wasn't worth keeping - it has *zero* real fault tolerance
+(quorum of 2 needs both members healthy, so it's strictly worse than a 1-node etcd, not more
+resilient) - and simplicity was worth more than fake HA for a homelab. `machine.type`
+(`controlplane` vs `worker`) is fixed at install time in Talos, not a live-patchable field, so
+this meant wiping and rejoining the node, not a config change:
+
+```bash
+# safety net first - etcd holds every Kubernetes Secret in plaintext, treat the snapshot
+# accordingly (not committed anywhere, kept local-only)
+talosctl -n 192.168.1.252 etcd snapshot out/etcd-backups/etcd-$(date +%Y%m%d-%H%M%S).snapshot
+```
+
+Before wiping anything, checked what Longhorn data actually lived only on `talos-cp2` -
+`kubectl get replicas.longhorn.io -n longhorn-system` (not just `volumes.longhorn.io`'s
+`ownerID`, which only shows current attachment, not full replica placement) showed every
+`longhorn-replicated` volume already had a synced replica on `talos-cp1` too, and the
+`longhorn-strict-local` Postgres volumes were all CNPG replicas (primaries were already on
+`cp1`) - so nothing irreplaceable was actually single-homed on `cp2`. Worth checking this fresh
+each time rather than assuming, since `ownerID` alone gives a misleading picture.
+
+```bash
+talosctl -n 192.168.1.206 reset --graceful --reboot --wipe-mode system-disk
+```
+`--graceful` (default `true`) cordons/drains the node and leaves etcd *before* wiping anything -
+etcd's membership drops to 1 (trivial quorum) before the node actually goes away, rather than
+losing 1-of-2 with no warning. `--wipe-mode system-disk` (default is `all`) is what keeps
+`/dev/sdb` - the actual Longhorn data disk - untouched; the default would have wiped it too.
+Longhorn's own node-eviction safety logic (it tries to wait for a replica to exist elsewhere
+before releasing the last one - a condition `strict-local` volumes can never satisfy by design)
+didn't end up hanging the drain this run, but it's a known rough edge of `strict-local` worth
+knowing about before draining a node that has any.
+
+Wiping `/dev/sda` means there's no OS left to boot from - the node came back to a UEFI "no
+bootable option" screen, needing the Talos installer ISO re-attached/boot-ordered in Proxmox to
+re-enter maintenance mode, same as a from-scratch node. Once it was back in maintenance mode (on
+a fresh DHCP lease, `192.168.1.22` again in this case):
+
+```bash
+# worker, not controlplane - see "Changing the machine config" above for the full two-type flow
+talosctl gen config talos-proxmox-cluster https://192.168.1.252:6443 \
+  --with-secrets out/.secrets.yaml --kubernetes-version 1.36.2 \
+  --output-types worker,talosconfig --output out/base-worker \
+  --config-patch @patches/common.yaml --force
+yq -i 'select(.kind != "HostnameConfig")' out/base-worker/worker.yaml
+talosctl machineconfig patch out/base-worker/worker.yaml --patch @patches/w-1.yaml --output out/w-1.yaml
+talosctl validate --config out/w-1.yaml --mode metal
+talosctl apply-config --insecure -n 192.168.1.22 -f out/w-1.yaml
+```
+`patches/w-1.yaml` is `patches/talos-cp2.yaml` (deleted) with the hostname changed to `w-1` -
+same static IP (`192.168.1.206/24`), since this is the same physical VM as before.
+
+One thing that broke afterward: `talosctl etcd members` started failing with `PermissionDenied:
+no request forwarding`. The talosconfig's **endpoints** list (the gRPC gateway `talosctl`
+connects through - separate from `-n`/`--nodes`, which just selects which node's data to
+fetch) still had `192.168.1.206` in it from step 11, and a worker apparently can't forward
+admin-level requests like etcd queries the way a control-plane node can. Fixed by dropping it
+back to just the control-plane:
+```bash
+talosctl config endpoint 192.168.1.252
+```
+
+Verified with `talosctl -n 192.168.1.252 etcd members` (`talos-cp1` only), `kubectl get nodes`
+(`w-1` `Ready`, role `<none>`), `kubectl delete node talos-cp2` (the old `Node` object doesn't
+go away on its own, same as every previous rename in this history), and a cluster-wide pod
+sweep once things settled - the `Pending` CNPG replicas and DaemonSet pods that had been on
+`cp2` rescheduled onto `w-1` on their own once it came `Ready`, no manual intervention needed.

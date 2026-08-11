@@ -1,0 +1,29 @@
+machine:
+  network:
+    interfaces:
+      - interface: ens18
+        addresses:
+          # TEMPORARY: .7, not the originally-planned .6 - pve0's own vmbr0
+          # ended up claiming .6 by mistake and was left as-is rather than
+          # touched again; reconcile both to clean, final addresses once the
+          # whole migration is proven working end to end.
+          - 10.200.0.7/24
+        dhcp: false
+        routes:
+          # Old 192.168.1.206/24 address and its 192.168.1.254 route are
+          # gone as of this cutover - pve0's cable physically moved to the
+          # Mikrotik, so that gateway is dead weight now, not just unused.
+          # Default route via the Mikrotik covers the WireGuard subnet too
+          # (10.200.255.0/24, no separate route needed the way ens19 got on
+          # cp1) and reaches the old 192.168.1.0/24 network (e.g. nas's NFS
+          # export) via the router's existing LAN->WAN forwarding/masquerade.
+          - network: 0.0.0.0/0
+            gateway: 10.200.0.1
+    nameservers:
+      - 192.168.1.253
+      - 1.1.1.1
+      - 1.0.0.1
+---
+apiVersion: v1alpha1
+kind: HostnameConfig
+hostname: w-1

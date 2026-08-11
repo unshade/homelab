@@ -21,35 +21,43 @@ Internet
   |
 ISP router (192.168.1.254, DNS .253) - unchanged
   |
-  |-- existing 192.168.1.0/24 devices (Proxmox host .201, your laptop/phone, etc.)
+  |-- existing 192.168.1.0/24 devices (Proxmox host `nas` - vmbr0/nic3, .201 - your laptop/phone, etc.)
   |
   '-- Mikrotik WAN (ether1, static 192.168.1.5/24 - see "First-time router setup")
         |
         '-- Mikrotik LAN bridge, 10.200.0.0/24
-              |-- talos-cp1, talos-cp2 (once re-IP'd - see cutover checklist)
+              |-- Proxmox host `nas`, second bridge vmbr1/nic0, 10.200.0.20 - dual-homed,
+              |     vmbr0 untouched (see cutover checklist)
+              |-- talos-cp1, w-1 - each dual-homed via a second vNIC once added - see checklist
               '-- WireGuard interface (10.200.255.0/24) - see below
 ```
 
 The Mikrotik is a **second router behind the first one**, not a replacement for it - the
 existing gateway/DNS/Proxmox host keep their `192.168.1.x` addresses untouched. Only the
-homelab's own network segment moves to `10.200.0.0/24`.
+homelab's own network segment moves to `10.200.0.0/24`. `nas` has 4 physical NICs (`nic0`-`nic3`)
+but only `nic3`/`vmbr0` is in use - one of the 3 spare ports is what carries the new network to
+the host and VMs, so `vmbr0`/`192.168.1.201` never has to change.
 
 ## Addressing
 
 | | |
 |---|---|
 | LAN subnet | `10.200.0.0/24`, gateway `10.200.0.1` (the router) |
-| Static range | `.2`-`.99` - Talos nodes, Cilium's LoadBalancer pool, anything else that needs a fixed address |
+| Static range | `.5`-`.99` - Talos nodes, Cilium's LoadBalancer pool, anything else that needs a fixed address |
 | DHCP pool | `.100`-`.199` - everything else (phones, laptops when physically on this LAN, etc.) |
 | WireGuard | `10.200.255.0/24`, kept deliberately separate from the LAN subnet so tunnel and LAN addresses never collide. Router is `10.200.255.1` |
 
-Suggested statics once the cutover happens (not applied yet - see checklist):
+Statics for the cutover (not applied yet - see checklist below). Trimmed from the old
+`192.168.1.x` last octet to fit the narrower `.5`-`.99` static range (`.252`→`.52`, `.206`→`.6`)
+rather than reusing the old `.206`/`.252`/`.220`-`.245`, which would now fall inside the DHCP
+pool and risk a lease colliding with a statically-pinned Talos address:
 
 | Host | Address | Notes |
 |---|---|---|
-| talos-cp1 | `10.200.0.252` | keeps the same last octet as the old `192.168.1.252`, for continuity |
-| talos-cp2 | `10.200.0.206` | same, from `192.168.1.206` |
-| Cilium LoadBalancer pool | `10.200.0.220`-`10.200.0.245` | replaces the old `192.168.1.590`-`.200` pool |
+| `nas` (Proxmox host, `vmbr1`) | `10.200.0.20` | new - `vmbr0`/`192.168.1.201` is untouched, dual-homed |
+| talos-cp1 | `10.200.0.52` | from `192.168.1.252` |
+| w-1 | `10.200.0.6` | from `192.168.1.206` |
+| Cilium LoadBalancer pool | `10.200.0.70`-`10.200.0.85` | replaces the old `192.168.1.190`-`.200` pool |
 
 ## WireGuard: local access from the upstream network
 
@@ -213,29 +221,181 @@ router itself, nothing on the existing cluster changes as a result. Actually put
 *behind* this router is a separate, higher-stakes step: it means the Talos nodes lose their
 current `192.168.1.252`/`.206` addresses and everything that references them needs to move in
 lockstep, or the cluster becomes unreachable mid-cutover. Do this as its own deliberate session,
-one step verified before the next, not as a batch:
+one step verified before the next, not as a batch.
 
-1. **Physical**: cable the Proxmox host into one of the Mikrotik's LAN ports (directly, or via a
-   dedicated VLAN/bridge on the existing switch) - the Talos VMs' virtual NICs need to attach to
-   a Proxmox bridge that reaches the Mikrotik's LAN side, not the current one facing
-   `192.168.1.0/24`. Proxmox's own management address (`192.168.1.201`) can stay where it is if
-   the host is dual-homed (a second bridge on a second NIC/VLAN) - only the two Talos VMs' NICs
-   need to move.
-2. **Re-IP one node at a time**, same one-at-a-time-with-verification discipline as any other
-   Talos machine-config change (see `talos/README.md`'s "Changing the machine config"):
-   `talos/patches/talos-cp1.yaml`/`talos-cp2.yaml` addresses move from `192.168.1.252/24` /
-   `192.168.1.206/24` to `10.200.0.252/24` / `10.200.0.206/24`, gateway `10.200.0.1`.
-3. **Update everything else still hardcoded to the old addresses**: `cluster.controlPlane.endpoint`
-   in `talos/patches/common.yaml` (currently `192.168.1.252`), Cilium's `k8sServiceHost` Helm
-   value (`clusters/homelab/apps/cilium/release.yaml`), and the `CiliumLoadBalancerIPPool` range
-   in `clusters/homelab/apps/cilium-config/lb-pool.yaml` (currently `192.168.1.590`-`.200`, move
-   to `10.200.0.220`-`.245` per the addressing table above).
-4. **ZFS NFS export ACL**: the Proxmox host's `zfs set sharenfs="rw=@192.168.1.252/32:..."` (see
-   root README's ZFS section) is keyed to the nodes' old IPs and needs updating to the new ones,
-   or NFS mounts (`nfs-csi`) break.
-5. **Verify** at each step the same way the Talos patches restructure was verified before it went
-   live: `talosctl services`, `kubectl get nodes`, `talosctl etcd members`, a cluster-wide
-   non-`Running` pod sweep, before moving to the next node or the next hardcoded reference.
+**The key trick that makes this near-zero-downtime and reboot-free: everything can be dual-homed
+- host and both VMs - entirely live, and the physical cabling has zero timing pressure since it
+happens before anything about traffic routing changes.** `nas` has 4 physical NICs (`nic0`-`nic3`)
+but only `nic3`/`vmbr0` is in use; one of the 3 spare ports carries the new network in without
+ever touching `vmbr0`/`192.168.1.201`. Each Talos VM gets a **second virtual NIC** (hot-added,
+live, no VM reboot) attached to that new bridge, so it ends up with two real network interfaces -
+the existing `ens18` (old network, untouched) and a new `ens19` (new network) - rather than two
+addresses squeezed onto one interface fighting over a single physical link. The only genuinely
+disruptive moment left is flipping which interface carries the default route, which is a single
+live `apply-config` with no physical action attached to it at all.
+
+### Phase 0 - Proxmox host: add the second bridge (fully live, zero risk to `vmbr0`)
+
+1. Cable one of the unused ports (`nic0`/`nic1`/`nic2`) to a Mikrotik LAN port. Check
+   *Datacenter → nas → System → Network* - whichever port flips to `Active: Yes` is the one you
+   just plugged in.
+2. *Network → Create → Linux Bridge*:
+   - Name: `vmbr1`
+   - IPv4/CIDR: `10.200.0.20/24`
+   - Gateway: **leave empty** - the host should keep exactly one default route (via `vmbr0`/
+     `192.168.1.254`); giving `vmbr1` a gateway too would create two default routes on the host
+     itself and invite asymmetric-routing weirdness for no benefit, since `nas` doesn't need to
+     reach the internet over the new segment.
+   - Bridge ports: the NIC that just went active
+   - Autostart: yes, VLAN aware: no
+3. *Create*, then the **Apply Configuration** button (top-right, same one visible in your
+   screenshot) - applies live via `ifreload`, no reboot, doesn't touch `vmbr0`/`nic3` at all.
+4. Verify: `ip a show vmbr1` shows `10.200.0.20/24`; once the Mikrotik side is live,
+   `ping 10.200.0.1` from the Proxmox shell should succeed.
+
+### Phase 1 - Talos VMs: add the second NIC and the new interface's config (fully live)
+
+Do this any time after Phase 0; it changes nothing about how the nodes are currently reached -
+`ens18` keeps its `192.168.1.x/24` address and the `192.168.1.254` default route throughout.
+
+1. Hot-add a second vNIC to each VM, attached to `vmbr1` (find the VM IDs with `qm list`):
+   ```bash
+   qm set <cp1-vmid> -net1 virtio,bridge=vmbr1
+   qm set <w1-vmid> -net1 virtio,bridge=vmbr1
+   ```
+2. Confirm Talos actually sees it and note the interface name it gets (likely `ens19`, following
+   `ens18`, but confirm rather than assume - same check this repo already used when bringing up
+   `talos-cp2`):
+   ```bash
+   talosctl -n 192.168.1.252 get links
+   ```
+3. Add it as a **new, separate** `interfaces:` entry - not a second address on `ens18` - with no
+   *default* route, so it's scoped to just what's needed until the deliberate cutover step below.
+   One thing that's easy to miss here (found live, while bringing up `talos-cp1`): the WireGuard
+   road-warrior tunnel subnet (`10.200.255.0/24`) is a *different* subnet from the LAN
+   `10.200.0.0/24` - so without an explicit route for it, a reply to a WireGuard client has
+   nowhere to go except the default route, still on `ens18`, addressed to the *old* gateway, which
+   has never heard of `10.200.255.0/24` and silently drops it. Symptom looked identical to a
+   router-side firewall block (requests forwarded fine, zero replies ever came back - confirmed via
+   `/ip firewall connection print detail` on the Mikrotik showing `orig-packets` climbing while
+   `repl-packets` stayed at `0`) until this was added:
+   ```yaml
+   # talos/patches/talos-cp1.yaml
+   machine:
+     network:
+       interfaces:
+         - interface: ens18
+           addresses:
+             - 192.168.1.252/24
+           dhcp: false
+           routes:
+             - network: 0.0.0.0/0
+               gateway: 192.168.1.254
+         - interface: ens19
+           addresses:
+             - 10.200.0.52/24
+           dhcp: false
+           routes:
+             - network: 10.200.255.0/24
+               gateway: 10.200.0.1
+   ```
+   same idea for `w-1.yaml`: `ens19` (confirm the name) with `10.200.0.6/24`, same
+   `10.200.255.0/24` route. Regenerate/validate/apply exactly as `talos/README.md`'s "Changing
+   the machine config" describes, one node at a time.
+4. **Verify with a raw ping/`nc`, not `talosctl`.** `talosctl -n 10.200.0.52 ...` is *not* a valid
+   test of this path - the client connects to whatever `endpoint` is configured
+   (`192.168.1.252`, reachable directly, no tunnel needed), and `-n` just tells that same
+   already-reachable `apid` "answer as if targeting this node," which it can satisfy locally
+   without ever touching `ens19`. This produced a convincing false positive live - looked like a
+   successful end-to-end check, wasn't. Use something that can't take that shortcut instead, from
+   a machine reaching the node only via the WireGuard tunnel:
+   ```bash
+   ping -c 5 10.200.0.52          # from a WireGuard-connected client, not the node itself
+   nc -zv -w3 10.200.0.52 6443
+   ```
+   Both should succeed with `0%` loss / `succeeded`. Also check `talosctl -n 192.168.1.252 get
+   addresses` (over the still-working old path) shows both interfaces up, and a full health sweep
+   (`talosctl services`, `kubectl get nodes`, non-`Running` pod check) - see `talos/README.md`.
+   Repeat everything for `w-1`/`10.200.0.6`. At this point both nodes are fully dual-homed and
+   nothing about current traffic has changed - `kubectl get nodes` may already show the new
+   address as a node's `INTERNAL-IP` (kubelet's own address-detection picks it up early), which is
+   cosmetic and harmless as long as `ciliumnodes`' tracked address for that node is still the old
+   one (`kubectl get ciliumnodes -o yaml`) - it'll converge naturally once Phase 2/3 happen in
+   order.
+
+### Phase 2 - the actual cutover: flip the default route (the one disruptive moment, still no reboot, no physical action)
+
+With both interfaces already up and verified, this is a single `apply-config` per node that moves
+the `routes:` block from `ens18` to `ens19` - the only traffic that notices is anything using the
+default route (internet-bound, cross-subnet) for the seconds it takes the route table to update;
+anything reaching the node directly over either subnet is unaffected throughout:
+
+```yaml
+# talos/patches/talos-cp1.yaml
+machine:
+  network:
+    interfaces:
+      - interface: ens18
+        addresses:
+          - 192.168.1.252/24
+        dhcp: false
+      - interface: ens19
+        addresses:
+          - 10.200.0.52/24
+        dhcp: false
+        routes:
+          - network: 0.0.0.0/0
+            gateway: 10.200.0.1
+```
+```bash
+talosctl -n 192.168.1.252 apply-config -f out/talos-cp1.yaml
+```
+same for `w-1`. Do both back to back rather than leaving one flipped and one not for long: Cilium
+doesn't need L2 adjacency between nodes for pod traffic (no `routingMode` override in
+`clusters/homelab/apps/cilium/release.yaml` means it's on the chart default, VXLAN tunnel), but it
+does need L3 reachability between the two nodes, and nothing routes between the two subnets here.
+
+`ens18`/`192.168.1.x` is deliberately left in place after this, not torn down immediately - it's
+the rollback path while everything else in Phase 3 gets updated and verified. Remove it only once
+you're fully confident (edit the patch again, drop the `ens18` block, `apply-config` once more -
+zero surprises since Phase 0-2 already proved the pattern works).
+
+Verify before moving to Phase 3: `talosctl -n 10.200.0.52 get addresses`, `talosctl services`,
+`kubectl get nodes`.
+
+### Phase 3 - everything else still hardcoded to the old addresses
+
+None of this is in the hot path of the route-flip above - do it once both nodes are confirmed up
+on `10.200.0.0/24`:
+
+1. **`cluster.controlPlane.endpoint`** (currently `https://192.168.1.252:6443`, passed as the
+   literal URL argument to `talosctl gen config` per `talos/README.md` - it's not a field inside
+   `common.yaml` today) → `https://10.200.0.52:6443`. Not urgent for the node itself (same
+   locally-owned-address reasoning as above), but external `talosctl`/`kubectl` need it to
+   reach the cluster at all - see step 5.
+2. **Cilium's `k8sServiceHost`** in `clusters/homelab/apps/cilium/release.yaml`
+   (`192.168.1.252` → `10.200.0.52`), and the `CiliumLoadBalancerIPPool` range in
+   `clusters/homelab/apps/cilium-config/lb-pool.yaml` (`192.168.1.190`-`.200` →
+   `10.200.0.70`-`.85`, per the addressing table above). The `k8sServiceHost` change restarts the
+   Cilium agents (Flux picks up the Helm value change) - expect the same kind of brief
+   pod-network hiccup as the original Cilium cutover documented in the root README, not a full
+   outage (the eBPF datapath doesn't disappear the way flannel's did).
+3. **ZFS NFS export ACL** on the Proxmox host: `zfs set
+   sharenfs="rw=@10.200.0.52/32:@10.200.0.6/32,no_root_squash,no_subtree_check" Main/data` (see
+   root README's ZFS section) - or NFS mounts (`nfs-csi`) break.
+4. **Local `talosctl`/`kubectl` config**: `talosctl config endpoint 10.200.0.52` (drop `.206`/
+   `w-1` from the endpoint list per the existing `PermissionDenied: no request forwarding` lesson
+   in `talos/README.md` - only the control-plane node belongs there), `talosctl config node
+   10.200.0.52`, and re-fetch `talos/out/kubeconfig` (`talosctl -n 10.200.0.52 kubeconfig
+   talos/out/kubeconfig --force`) since its embedded `server:` URL still points at
+   `192.168.1.252`.
+5. **Router DHCP pool exclusion**: double-check the Mikrotik's `.100`-`.199` DHCP pool doesn't
+   overlap `10.200.0.52`/`.6`/the Cilium range (`.70`-`.85`) - it shouldn't, by construction, but
+   worth confirming in the Terraform config the same way the root README already calls out for
+   the old network's DHCP pool.
+6. **Verify** the same way the Talos patches restructure was verified before it went live:
+   `talosctl services`, `kubectl get nodes`, `talosctl etcd members`, a cluster-wide
+   non-`Running` pod sweep.
 
 This is exactly the kind of hard-to-reverse, whole-cluster-reachability-affecting change worth
 doing together interactively rather than scripted end-to-end - keep Proxmox console access

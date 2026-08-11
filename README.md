@@ -46,26 +46,21 @@ zfs set sharenfs="rw=@192.168.1.252/32:@192.168.1.206/32,no_root_squash,no_subtr
 | | |
 |---|---|
 | Cluster name | `talos-proxmox-cluster` |
-| Nodes | `talos-cp1` (`192.168.1.252`), `talos-cp2` (`192.168.1.206`) — both static |
+| Nodes | `talos-cp1` (`192.168.1.252`, control-plane), `w-1` (`192.168.1.206`, worker) — both static |
 | Interface | `ens18` (both nodes) |
 | Gateway | `192.168.1.254` |
 | Talos version | v1.13.5 |
 | Kubernetes version | v1.36.2 |
 | CNI | [Cilium](https://cilium.io) (replaces flannel), kube-proxy-replacement mode, LoadBalancer IPs via L2 announcement (replaces the never-installed MetalLB) — see [Networking: Cilium](#networking-cilium) |
-| Role | both nodes are control-plane with `allowSchedulingOnControlPlanes: true`, so regular pods schedule on either |
+| Role | single control-plane (`talos-cp1`) by design — a 2-node etcd (the earlier setup) has zero real fault tolerance anyway, since quorum of 2 needs both members healthy. `talos-cp1` has `allowSchedulingOnControlPlanes: true` so it still runs regular pods alongside `w-1`, not just etcd/control-plane |
 | Data disk | `sdb`, 430GB, XFS, mounted at `/var/mnt/data` on **each** node (see Storage section) — `longhorn-strict-local` volumes are pinned to whichever node the pod using them lands on, so both nodes need their own copy of this disk/mount, not a shared one |
 
 > Both nodes' static IPs (`192.168.1.252`, `192.168.1.206`) should be excluded from your router's
 > DHCP pool so they never get handed out to something else.
 
-**Known gap:** `cluster.controlPlane.endpoint` (in both nodes' machine config) and Cilium's
-`k8sServiceHost` Helm value are still hardcoded to `192.168.1.252` — every node bootstraps its
-kube-apiserver connection through cp1 specifically. This isn't a problem day-to-day (once a node
-is up, `kubectl`/`talosctl` can reach it directly, and running pods don't route through this
-value), but if cp1 is down, a fresh Cilium agent or a from-scratch node join would have nothing to
-bootstrap against even though cp2 is healthy. Fixing this for real needs a floating VIP (Talos
-supports one natively) shared between control-plane nodes — not done yet, tracked here as a
-follow-up rather than solved as a side effect of adding cp2.
+`cluster.controlPlane.endpoint` and Cilium's `k8sServiceHost` are hardcoded to `192.168.1.252` —
+no longer a "gap" to fix, since with a single control-plane there's only one node either of
+these could ever point to.
 
 ## Talos: day-to-day operations
 
