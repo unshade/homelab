@@ -25,13 +25,20 @@ spec:
       create: true
       name: nfs
       parameters:
-        # nas's address on the new 10.200.0.0/24 network (was 192.168.1.201,
-        # nas's vmbr0 - now vmbr1, added during the router migration; see
-        # router/README.md). This only affects *new* PVCs going forward -
-        # existing ones have their server baked into an immutable
-        # spec.persistentVolumeSource on their PV and needed a manual
-        # PV swap instead (see e.g. jellyfin/media-pv.yaml's comment).
-        server: 10.200.0.20
+        # Deliberately still the OLD address (192.168.1.201, nas's vmbr0 -
+        # nas is now also reachable at 10.200.0.20/vmbr1, see
+        # router/README.md's Cutover checklist). NOT changed here: unlike
+        # most Helm values, `storage.k8s.io/v1 StorageClass.parameters` is
+        # immutable after creation - confirmed live, Helm upgrade rejected
+        # with "field is immutable" and auto-rolled-back repeatedly (burned
+        # through several release revisions before this got caught). The
+        # only way to actually change it is delete+recreate the StorageClass
+        # object - not done yet since neither existing NFS-backed PVC needs
+        # it (both have their `server` pinned directly on a hand-crafted PV
+        # instead, see e.g. jellyfin/media-pv.yaml's comment) - only a
+        # *new* PVC dynamically provisioned against this StorageClass would
+        # need it, and none exists yet.
+        server: 192.168.1.201
         # ASSUMPTION: default ZFS mountpoint convention for dataset "Main/data".
         # Verify with `zfs get mountpoint Main/data` on the host (or
         # `showmount -e 192.168.1.201` from anywhere) before relying on this —
