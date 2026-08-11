@@ -366,38 +366,67 @@ Verify before moving to Phase 3: `talosctl -n 10.200.0.52 get addresses`, `talos
 ### Phase 3 - everything else still hardcoded to the old addresses
 
 None of this is in the hot path of the route-flip above - do it once both nodes are confirmed up
-on `10.200.0.0/24`:
+on `10.200.0.0/24`. Status as of the actual migration:
 
-1. **`cluster.controlPlane.endpoint`** (currently `https://192.168.1.252:6443`, passed as the
-   literal URL argument to `talosctl gen config` per `talos/README.md` - it's not a field inside
-   `common.yaml` today) → `https://10.200.0.52:6443`. Not urgent for the node itself (same
-   locally-owned-address reasoning as above), but external `talosctl`/`kubectl` need it to
-   reach the cluster at all - see step 5.
-2. **Cilium's `k8sServiceHost`** in `clusters/homelab/apps/cilium/release.yaml`
-   (`192.168.1.252` → `10.200.0.52`), and the `CiliumLoadBalancerIPPool` range in
-   `clusters/homelab/apps/cilium-config/lb-pool.yaml` (`192.168.1.190`-`.200` →
-   `10.200.0.70`-`.85`, per the addressing table above). The `k8sServiceHost` change restarts the
-   Cilium agents (Flux picks up the Helm value change) - expect the same kind of brief
-   pod-network hiccup as the original Cilium cutover documented in the root README, not a full
-   outage (the eBPF datapath doesn't disappear the way flannel's did).
-3. **ZFS NFS export ACL** on the Proxmox host: `zfs set
-   sharenfs="rw=@10.200.0.52/32:@10.200.0.6/32,no_root_squash,no_subtree_check" Main/data` (see
-   root README's ZFS section) - or NFS mounts (`nfs-csi`) break.
-4. **Local `talosctl`/`kubectl` config**: `talosctl config endpoint 10.200.0.52` (drop `.206`/
-   `w-1` from the endpoint list per the existing `PermissionDenied: no request forwarding` lesson
-   in `talos/README.md` - only the control-plane node belongs there), `talosctl config node
-   10.200.0.52`, and re-fetch `talos/out/kubeconfig` (`talosctl -n 10.200.0.52 kubeconfig
-   talos/out/kubeconfig --force`) since its embedded `server:` URL still points at
-   `192.168.1.252`.
-5. **Router DHCP pool exclusion**: double-check the Mikrotik's `.100`-`.199` DHCP pool doesn't
-   overlap `10.200.0.52`/`.6`/the Cilium range (`.70`-`.85`) - it shouldn't, by construction, but
-   worth confirming in the Terraform config the same way the root README already calls out for
-   the old network's DHCP pool.
-6. **Verify** the same way the Talos patches restructure was verified before it went live:
+1. **`cluster.controlPlane.endpoint` - deliberately NOT changed, don't change it.** This isn't a
+   reachability setting - it's baked directly into the apiserver's `--service-account-issuer` and
+   `--api-audiences` flags (confirmed live: `talosctl -n <ip> get staticpods kube-apiserver -o
+   yaml`). Changing it **invalidates every already-issued service-account token cluster-wide** -
+   every pod using one (which is most of them: Flux's four controllers, cert-manager, cnpg,
+   Longhorn, cilium-operator, ...) starts failing with `Unauthorized` immediately, and kubelet only
+   refreshes a pod's mounted token on its own ~hour-long cycle, not on restart - so this doesn't
+   self-heal quickly. Hit this live: changed it to `10.200.0.52`, watched most of the cluster's
+   control-plane tooling crash-loop, reverted back to `192.168.1.252` within a few minutes once the
+   cause was found. `192.168.1.252` staying on `ens18` forever as the token-issuer identity is
+   fine and safe - same reasoning as `nas` staying dual-homed permanently, it doesn't mean
+   anything is meaningfully "still on the old network."
+   - **What you actually want (managing the cluster via the new network) doesn't need this at
+     all** - `talosctl`'s `endpoints`/`nodes` and `kubeconfig`'s `server:` field are pure
+     client-side settings, decoupled from the apiserver's own issuer flags. `talosctl config
+     endpoint 10.200.0.52`/`talosctl config node 10.200.0.52` works cleanly on its own. `talosctl
+     kubeconfig ... --force` does *not* work for this, though - it regenerates `server:` *from*
+     `cluster.controlPlane.endpoint`, so it comes back pointing at the old address every time.
+     Editing `talos/out/kubeconfig`'s `server:` line directly (`sed`/by hand) works fine instead -
+     TLS validates against `10.200.0.52` without issue since that address is already in the
+     apiserver's cert SANs (Talos manages those dynamically off the node's live addresses, see
+     the Cutover checklist's cert-SAN note above) - then re-run `talos/scripts/encrypt-secrets.sh`
+     to update the committed `kubeconfig.enc.yaml`.
+2. **Cilium's `k8sServiceHost`** in `clusters/homelab/apps/cilium/release.yaml` - done, now
+   `10.200.0.52`. And the `CiliumLoadBalancerIPPool` range in
+   `clusters/homelab/apps/cilium-config/lb-pool.yaml` - done, now `10.200.0.90`-`.99` (not
+   `.70`-`.85` as originally sketched here - whatever range you actually pick, first confirm
+   nothing in the repo references the old LB IP directly: `grep -rn <old-ip>` across the repo. In
+   this migration only `envoy-main` used one, and the real ingress path
+   (`clusters/homelab/apps/wireguard/haproxy-configmap.yaml`) targets it via internal cluster DNS,
+   not the LoadBalancer IP - so the range change had zero impact on public ingress). The
+   `CiliumLoadBalancerIPPool`/`CiliumL2AnnouncementPolicy` CRDs are plain mutable manifests, no
+   immutability surprise there (confirmed via dry-run patch before committing).
+   - **Gotcha found the hard way, worth knowing before it bites you again**: any time
+     `kube-apiserver` itself restarts (a `cluster.controlPlane.endpoint`-style config apply,
+     an upgrade, anything), Cilium's own tracked backend for the `kubernetes` ClusterIP service
+     (`10.96.0.1:443`) can go stale/empty - `cilium-dbg service list | grep 10.96.0.1` shows no
+     backend at all, and everything using in-cluster service-account credentials (basically every
+     controller pod) starts failing with `no route to host` reaching `10.96.0.1`. Symptom looks
+     identical to a real network problem but isn't one - the fix is the same agent restart used
+     elsewhere in this doc: `kubectl delete pods -n kube-system -l k8s-app=cilium`, verify the
+     backend reappears, done. This needs re-doing after *every* apiserver restart, not just once -
+     bit us twice in the same session (once after the endpoint change, again after reverting it).
+3. **ZFS NFS export ACL** on `nas` - done, both nodes' new addresses added:
+   `zfs set sharenfs="rw=@192.168.1.252/32:@192.168.1.206/32:@192.168.1.5/32:@10.200.0.52/32:@10.200.0.7/32,no_root_squash,no_subtree_check" Main/data`
+   (kept the stale old-network entries rather than pruning them - harmless, not worth the risk of
+   a typo on a live export ACL for a cleanup with zero functional benefit).
+4. **Router DHCP pool exclusion**: double-check the Mikrotik's `.100`-`.199` DHCP pool doesn't
+   overlap `10.200.0.52`/`.6`/`.7`/the Cilium range (`.90`-`.99`) - it shouldn't, by construction,
+   but worth confirming in the Terraform config the same way the root README already calls out for
+   the old network's DHCP pool. **Not yet done as of this writing.**
+5. **Verify** the same way the Talos patches restructure was verified before it went live:
    `talosctl services`, `kubectl get nodes`, `talosctl etcd members`, a cluster-wide
-   non-`Running` pod sweep.
+   non-`Running` pod sweep - and now also: `kubectl get pods -A | grep -v Running` specifically
+   after *any* apiserver restart, per the Cilium gotcha above, not just after Talos-level changes.
 
 This is exactly the kind of hard-to-reverse, whole-cluster-reachability-affecting change worth
 doing together interactively rather than scripted end-to-end - keep Proxmox console access
 (VNC/serial) to each VM handy throughout in case a node becomes unreachable over the network
-mid-change.
+mid-change. Concretely proved its worth here: the `cluster.controlPlane.endpoint` mistake was
+caught and reverted within minutes specifically because it was done interactively with health
+checks after every step, not scripted end-to-end unattended.
