@@ -5,5 +5,4 @@ namespace: csi-driver-nfs
 resources:
   - namespace.yaml
   - release.yaml
-  # storage-class.yaml added in a second step, after Helm has actually
-  # removed the old StorageClass - see nfs-storage-class-migration notes.
+  - storage-class.yaml

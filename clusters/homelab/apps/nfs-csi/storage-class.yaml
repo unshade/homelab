@@ -1,0 +1,38 @@
+---
+# Hand-written, not Helm-managed (see release.yaml's storageClass.create:
+# false comment) - `storage.k8s.io/v1 StorageClass.parameters` is immutable
+# after creation, so this is the only way to actually change `server`: delete
+# and recreate the object. Only affects *new*, dynamically-provisioned PVCs -
+# both existing NFS-backed PVCs (immich-library, jellyfin-media) are pinned
+# directly to a hand-crafted PV instead (see jellyfin/media-pv.yaml), so this
+# migration doesn't touch them.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs
+provisioner: nfs.csi.k8s.io
+parameters:
+  # nas's address on the new 10.200.0.0/24 network (was 192.168.1.201, nas's
+  # vmbr0 - now also vmbr1, added during the router migration; see
+  # router/README.md's Cutover checklist).
+  server: 10.200.0.20
+  # ASSUMPTION: default ZFS mountpoint convention for dataset "Main/data".
+  # Verify with `zfs get mountpoint Main/data` on the host (or
+  # `showmount -e 10.200.0.20` from anywhere) before relying on this - ZFS
+  # mountpoints can be customized away from the dataset name.
+  share: /Main/data
+  # Isolates each PVC into its own subdirectory on the NAS so unrelated PVCs
+  # never share one directory.
+  subDir: "${pvc.metadata.namespace}-${pvc.metadata.name}"
+  onDelete: retain
+# Retain, not Delete: this is meant for data you manage/browse directly from
+# the NAS (see root README's Storage section) — an accidental PVC delete
+# shouldn't silently wipe it.
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+# Forces NFSv4 on every mount through this class — the client won't fall back
+# to v3 even if the server offers it. Major version only (not e.g. 4.1) so
+# client/server negotiate the highest mutually supported v4.x minor version
+# rather than failing if a specific minor version isn't available.
+mountOptions:
+  - nfsvers=4
