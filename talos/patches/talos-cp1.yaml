@@ -1,35 +1,31 @@
 machine:
   network:
     interfaces:
+      # Deliberately left in place, no longer carrying the default route - the
+      # rollback path if ens19/the new network ever has a problem. Not part of
+      # any dynamic routing here, so this is genuinely inert unless something
+      # is explicitly pointed at 192.168.1.252 (nothing is, as of this change -
+      # see router/README.md's Cutover checklist, Phase 3).
       - interface: ens18
         addresses:
           - 192.168.1.252/24
         dhcp: false
-        routes:
-          - network: 0.0.0.0/0
-            gateway: 192.168.1.254
-      # New network (10.200.0.0/24, behind the Mikrotik) - second vNIC on vmbr1.
-      # No *default* route yet: stays scoped to just what's needed until the
-      # deliberate default-route cutover (see router/README.md's Cutover checklist,
-      # Phase 2) - ens18 keeps carrying all other off-subnet traffic until then.
-      #
-      # The one specific route below is required even pre-cutover: the WireGuard
-      # road-warrior tunnel (10.200.255.0/24) is a *different* subnet from the LAN
-      # ens19 is directly connected to, so without this, a reply to a WireGuard
-      # client has no route back except the default (still ens18 -> the old
-      # gateway, which has never heard of 10.200.255.0/24 and silently drops it) -
-      # confirmed live: the router's own conntrack showed it forwarding every
-      # request out fine (orig-packets=17) but receiving zero replies
-      # (repl-packets=0) until this route was added.
+      # New network (10.200.0.0/24, behind the Mikrotik) - now the primary
+      # interface: carries both the default route and the WireGuard-subnet
+      # route added earlier (10.200.255.0/24 - a *different* subnet from the
+      # LAN this interface is directly connected to, so still needs its own
+      # explicit route even now that the default route also lives here).
       - interface: ens19
         addresses:
           - 10.200.0.52/24
         dhcp: false
         routes:
+          - network: 0.0.0.0/0
+            gateway: 10.200.0.1
           - network: 10.200.255.0/24
             gateway: 10.200.0.1
     nameservers:
-      - 192.168.1.253
+      - 10.200.0.1
       - 1.1.1.1
       - 1.0.0.1
 ---
