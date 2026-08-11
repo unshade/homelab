@@ -21,42 +21,14 @@ spec:
     remediation:
       retries: 3
   values:
+    # storageClass.create is deliberately false: `storage.k8s.io/v1
+    # StorageClass.parameters` is immutable after creation, so Helm can never
+    # actually change `server` on an existing release - confirmed live, an
+    # upgrade attempting it was rejected outright and Flux auto-rolled-back in
+    # a loop, burning through several release revisions before this got
+    # caught. The StorageClass is hand-written instead, in storage-class.yaml
+    # - same directory, not Helm-managed, so it can be deleted and recreated
+    # (the only real way to change an immutable field) without fighting Helm
+    # over ownership.
     storageClass:
-      create: true
-      name: nfs
-      parameters:
-        # Deliberately still the OLD address (192.168.1.201, nas's vmbr0 -
-        # nas is now also reachable at 10.200.0.20/vmbr1, see
-        # router/README.md's Cutover checklist). NOT changed here: unlike
-        # most Helm values, `storage.k8s.io/v1 StorageClass.parameters` is
-        # immutable after creation - confirmed live, Helm upgrade rejected
-        # with "field is immutable" and auto-rolled-back repeatedly (burned
-        # through several release revisions before this got caught). The
-        # only way to actually change it is delete+recreate the StorageClass
-        # object - not done yet since neither existing NFS-backed PVC needs
-        # it (both have their `server` pinned directly on a hand-crafted PV
-        # instead, see e.g. jellyfin/media-pv.yaml's comment) - only a
-        # *new* PVC dynamically provisioned against this StorageClass would
-        # need it, and none exists yet.
-        server: 192.168.1.201
-        # ASSUMPTION: default ZFS mountpoint convention for dataset "Main/data".
-        # Verify with `zfs get mountpoint Main/data` on the host (or
-        # `showmount -e 192.168.1.201` from anywhere) before relying on this —
-        # ZFS mountpoints can be customized away from the dataset name.
-        share: /Main/data
-        # Isolates each PVC into its own subdirectory on the NAS so unrelated
-        # PVCs never share one directory.
-        subDir: "${pvc.metadata.namespace}-${pvc.metadata.name}"
-        onDelete: retain
-      # Retain, not Delete: this is meant for data you manage/browse directly
-      # from the NAS (see README's Storage section) — an accidental PVC
-      # delete shouldn't silently wipe it.
-      reclaimPolicy: Retain
-      volumeBindingMode: Immediate
-      # Forces NFSv4 on every mount through this class — the client won't
-      # fall back to v3 even if the server offers it. Major version only
-      # (not e.g. 4.1) so client/server negotiate the highest mutually
-      # supported v4.x minor version rather than failing if a specific
-      # minor version isn't available.
-      mountOptions:
-        - nfsvers=4
+      create: false
