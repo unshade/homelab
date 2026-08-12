@@ -1,19 +1,17 @@
 machine:
   network:
     interfaces:
-      # Deliberately left in place, no longer carrying the default route -
-      # purely a rollback path if ens19/the new network ever has a problem.
-      # Genuinely, fully inert now: cluster.apiServer.extraArgs in
-      # common.yaml pins both service-account-issuer and api-audiences to
-      # kubernetes.default.svc.cluster.local, so nothing about this address
-      # is load-bearing for tokens anymore either (it briefly was, for
-      # api-audiences specifically, between the two incidents documented in
-      # router/README.md's Cutover checklist Phase 3 - not anymore). Safe to
-      # remove entirely for a full cutover matching w-1/pve0, whenever
-      # that's actually wanted - nothing currently depends on it.
+      # Full cutover, matching w-1/pve0: no address at all anymore. Kept as an
+      # explicit interface entry (dhcp: false, no addresses) rather than
+      # omitted entirely, so it can't accidentally pick up a DHCP lease from
+      # the old network it's still physically on (via nas's vmbr0) - stays
+      # up, stays inert, on purpose. Confirmed live before this change that
+      # nothing referenced 192.168.1.252 anymore: controlPlane.endpoint,
+      # apiServer extraArgs, Cilium's k8sServiceHost, kubeconfig/talosctl,
+      # and the talos-cp1.lan/talos-api.lan DNS records were all already on
+      # 10.200.0.52 - see router/README.md's Cutover checklist Phase 3 for
+      # the full history of how this address stopped being load-bearing.
       - interface: ens18
-        addresses:
-          - 192.168.1.252/24
         dhcp: false
       # New network (10.200.0.0/24, behind the Mikrotik) - now the primary
       # interface: carries both the default route and the WireGuard-subnet
