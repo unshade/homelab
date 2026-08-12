@@ -409,6 +409,15 @@ on `10.200.0.0/24`. Status as of the actual migration:
      stayed clean through the apiserver restart this still causes). *Only after* that was confirmed
      stable on its own did changing `cluster.controlPlane.endpoint` become safe - verified this time
      against the live rendered static pod manifest immediately after applying, not a config diff.
+   - **`api-audiences` later advanced to its final value too** (`https://kubernetes.default.svc.
+     cluster.local`, matching `service-account-issuer`), as its own separate, deliberate single-shot
+     swap - same Talos limitation applies (no gradual multi-value path for this field either), same
+     staged-recovery pattern (fresh etcd backup, Cilium agent restart, every real API-calling pod
+     force-deleted - rebuilt fresh from live RBAC bindings each time, not reused from a prior
+     incident's stale list, since pod names change on every restart). Verified against the live
+     static pod manifest immediately after applying, same as always now. `ens18`'s `192.168.1.252`
+     on `talos-cp1` is genuinely, fully inert as of this - nothing pins to it anymore, safe to
+     remove entirely for a full cutover matching `w-1`/`pve0` whenever that's wanted.
    - **The actual lesson**: a clean machine-config diff does not prove no live-behavior change.
      Talos derives multiple apiserver flags from `cluster.controlPlane.endpoint` internally, and
      not all of them are visible as text anywhere in the config you're diffing. Before ever

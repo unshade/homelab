@@ -1,15 +1,16 @@
 machine:
   network:
     interfaces:
-      # Deliberately left in place, no longer carrying the default route - the
-      # rollback path if ens19/the new network ever has a problem. Genuinely
-      # inert for routing purposes - nothing routes through it - but it IS
-      # still the pinned value of cluster.apiServer.extraArgs.api-audiences
-      # in common.yaml (matches what every already-issued service-account
-      # token's audience claim already says), so don't remove this address
-      # without also revisiting that pin - see router/README.md's Cutover
-      # checklist, Phase 3, for the full two-incident writeup on why this
-      # specific address is still load-bearing in a non-obvious way.
+      # Deliberately left in place, no longer carrying the default route -
+      # purely a rollback path if ens19/the new network ever has a problem.
+      # Genuinely, fully inert now: cluster.apiServer.extraArgs in
+      # common.yaml pins both service-account-issuer and api-audiences to
+      # kubernetes.default.svc.cluster.local, so nothing about this address
+      # is load-bearing for tokens anymore either (it briefly was, for
+      # api-audiences specifically, between the two incidents documented in
+      # router/README.md's Cutover checklist Phase 3 - not anymore). Safe to
+      # remove entirely for a full cutover matching w-1/pve0, whenever
+      # that's actually wanted - nothing currently depends on it.
       - interface: ens18
         addresses:
           - 192.168.1.252/24

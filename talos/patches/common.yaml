@@ -86,12 +86,18 @@ cluster:
       # cluster-wide because of this exact flag (see router/README.md's
       # Phase 3 notes for the full second-incident writeup).
       #
-      # Pinned here to its CURRENT value on purpose - not the new stable one
-      # yet. Same string, so this step changes nothing about what's
-      # currently valid (a true no-op for tokens - only decouples where the
-      # value comes from). cluster.controlPlane.endpoint can only safely
-      # change *after* this is confirmed live and stable on its own.
-      api-audiences: https://192.168.1.252:6443
+      # Was pinned to its then-CURRENT value first (a true no-op step,
+      # confirmed live), *before* cluster.controlPlane.endpoint was changed -
+      # see router/README.md's Phase 3 for why that ordering mattered. Now
+      # advanced to the same permanently-stable value as service-account-
+      # issuer above, its own deliberate single-shot swap (same Talos
+      # limitation applies here too - single value patches fine, this field
+      # can't do the gradual multi-value dance either): every existing
+      # token's audience claim stops matching the moment this applies, fixed
+      # immediately with the same staged recovery (Cilium agent restart +
+      # every real API-calling pod force-deleted, rebuilt fresh from live
+      # RBAC bindings each time rather than reusing a stale list).
+      api-audiences: https://kubernetes.default.svc.cluster.local
 ---
 apiVersion: v1alpha1
 kind: UserVolumeConfig
