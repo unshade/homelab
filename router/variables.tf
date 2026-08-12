@@ -1,8 +1,8 @@
 # Everything else about the router (WAN, LAN bridge/DHCP, firewall) is
 # configured manually via Winbox, not Terraform - see router/README.md.
-# Terraform's scope here is deliberately just WireGuard: the bridge, the LAN
-# interface list, and the firewall rule it references already exist and were
-# created by hand, not by this config.
+# Terraform's scope here is WireGuard (the bridge, the LAN interface list,
+# and the firewall rule it references already exist and were created by
+# hand, not by this config) plus a handful of static DNS records.
 
 variable "router_address" {
   description = "Address Terraform uses to reach the router's REST API (https://<address>) - the router's WAN-side address, set manually"
@@ -44,4 +44,28 @@ variable "wireguard_peers" {
       address    = "10.200.255.2/32"
     }
   }
+}
+
+# Keyed by each node's actual Talos hostname - the DNS record is just
+# "<key>.lan", so this stays trivially coherent as nodes are added/renamed.
+# Add a new node here and its record follows automatically.
+variable "talos_nodes" {
+  description = "Talos node hostname -> current address, for <hostname>.lan DNS records."
+  type        = map(string)
+  default = {
+    talos-cp1 = "10.200.0.52"
+    w-1       = "10.200.0.7"
+  }
+}
+
+# The floating control-plane record - deliberately NOT one of talos_nodes'
+# own entries. Whichever node is actually running kube-apiserver right now,
+# so if control-plane ever moves to a different physical node, only this
+# one value changes - nothing in Talos/Kubernetes config needs to reference
+# a specific node's IP for this (see router/README.md's Phase 3 notes on
+# cluster.controlPlane.endpoint for why that decoupling matters).
+variable "talos_controlplane_address" {
+  description = "Current control-plane node's address - talos-api.lan follows this."
+  type        = string
+  default     = "10.200.0.52"
 }

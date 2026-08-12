@@ -77,3 +77,28 @@ resource "routeros_interface_wireguard_peer" "peers" {
   # router, not the other way around.
   allowed_address = [each.value.address]
 }
+
+# One record per Talos node, name mirrors its actual hostname exactly -
+# add a node to var.talos_nodes and its record follows with no other change
+# needed here.
+resource "routeros_ip_dns_record" "talos_nodes" {
+  for_each = var.talos_nodes
+
+  name    = "${each.key}.lan"
+  address = each.value
+  type    = "A"
+  comment = "talos node (mirrors its Talos hostname)"
+}
+
+# Floating - see var.talos_controlplane_address's comment for why this is a
+# separate record from talos_nodes rather than just reusing talos-cp1.lan.
+# Not yet referenced anywhere live (talos/patches/common.yaml's
+# cluster.controlPlane.endpoint is still the literal 192.168.1.252 - see
+# router/README.md's Phase 3 notes on why that's deliberate) - staged ahead
+# of actually using it, so the DNS side is proven working first.
+resource "routeros_ip_dns_record" "talos_api" {
+  name    = "talos-api.lan"
+  address = var.talos_controlplane_address
+  type    = "A"
+  comment = "floating - whichever node currently runs kube-apiserver"
+}
