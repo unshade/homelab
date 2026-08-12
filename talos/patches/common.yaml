@@ -77,6 +77,21 @@ cluster:
       # force-deleted in the same pass, rather than waiting on kubelet's own
       # slow natural token-refresh cycle.
       service-account-issuer: https://kubernetes.default.svc.cluster.local
+      # api-audiences ALSO derives from cluster.controlPlane.endpoint by
+      # default, independently of service-account-issuer above and
+      # invisible in any config-file diff (Talos computes it internally,
+      # never rendering it as text anywhere until the live static pod
+      # manifest) - found this out the hard way, live, when changing
+      # cluster.controlPlane.endpoint alone still invalidated every token
+      # cluster-wide because of this exact flag (see router/README.md's
+      # Phase 3 notes for the full second-incident writeup).
+      #
+      # Pinned here to its CURRENT value on purpose - not the new stable one
+      # yet. Same string, so this step changes nothing about what's
+      # currently valid (a true no-op for tokens - only decouples where the
+      # value comes from). cluster.controlPlane.endpoint can only safely
+      # change *after* this is confirmed live and stable on its own.
+      api-audiences: https://192.168.1.252:6443
 ---
 apiVersion: v1alpha1
 kind: UserVolumeConfig
