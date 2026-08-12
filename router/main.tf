@@ -92,10 +92,11 @@ resource "routeros_ip_dns_record" "talos_nodes" {
 
 # Floating - see var.talos_controlplane_address's comment for why this is a
 # separate record from talos_nodes rather than just reusing talos-cp1.lan.
-# Not yet referenced anywhere live (talos/patches/common.yaml's
-# cluster.controlPlane.endpoint is still the literal 192.168.1.252 - see
-# router/README.md's Phase 3 notes on why that's deliberate) - staged ahead
-# of actually using it, so the DNS side is proven working first.
+# Now live: cluster.controlPlane.endpoint (talos/patches, via the literal
+# URL argument to talosctl gen config) points here - see router/README.md's
+# Phase 3 notes for the two-incident history of getting this changed safely
+# (service-account-issuer AND api-audiences both had to be explicitly pinned
+# via cluster.apiServer.extraArgs first, independently of each other).
 resource "routeros_ip_dns_record" "talos_api" {
   name    = "talos-api.lan"
   address = var.talos_controlplane_address

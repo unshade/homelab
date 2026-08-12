@@ -2,10 +2,14 @@ machine:
   network:
     interfaces:
       # Deliberately left in place, no longer carrying the default route - the
-      # rollback path if ens19/the new network ever has a problem. Not part of
-      # any dynamic routing here, so this is genuinely inert unless something
-      # is explicitly pointed at 192.168.1.252 (nothing is, as of this change -
-      # see router/README.md's Cutover checklist, Phase 3).
+      # rollback path if ens19/the new network ever has a problem. Genuinely
+      # inert for routing purposes - nothing routes through it - but it IS
+      # still the pinned value of cluster.apiServer.extraArgs.api-audiences
+      # in common.yaml (matches what every already-issued service-account
+      # token's audience claim already says), so don't remove this address
+      # without also revisiting that pin - see router/README.md's Cutover
+      # checklist, Phase 3, for the full two-incident writeup on why this
+      # specific address is still load-bearing in a non-obvious way.
       - interface: ens18
         addresses:
           - 192.168.1.252/24

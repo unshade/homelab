@@ -76,7 +76,7 @@ talos/scripts/decrypt-secrets.sh   # gets you out/kubeconfig
 # then render the machine configs and talosconfig - see "Changing the machine config" below
 ```
 
-**After fetching a new kubeconfig** (`talosctl -n 192.168.1.252 kubeconfig talos/out/kubeconfig --force`):
+**After fetching a new kubeconfig** (`talosctl -n 10.200.0.52 kubeconfig talos/out/kubeconfig --force`):
 ```bash
 cd talos && ./scripts/encrypt-secrets.sh
 git add kubeconfig.enc.yaml
@@ -103,14 +103,14 @@ export KUBECONFIG=talos/out/kubeconfig
 ### Day-to-day Talos commands
 
 ```bash
-talosctl -n 192.168.1.252 dashboard        # live TUI: CPU/mem/disk, logs, processes
-talosctl -n 192.168.1.252 services         # health of every Talos-managed service
-talosctl -n 192.168.1.252 dmesg            # kernel + controller log stream
-talosctl -n 192.168.1.252 logs <service>   # e.g. etcd, kubelet
-talosctl -n 192.168.1.252 containers -k    # kubernetes-namespace containers (static pods)
-talosctl -n 192.168.1.252 version          # confirm the node is reachable
-talosctl -n 192.168.1.252 reboot           # graceful reboot
-talosctl -n 192.168.1.252 upgrade --image ghcr.io/siderolabs/installer:vX.Y.Z   # OS upgrade
+talosctl -n 10.200.0.52 dashboard        # live TUI: CPU/mem/disk, logs, processes
+talosctl -n 10.200.0.52 services         # health of every Talos-managed service
+talosctl -n 10.200.0.52 dmesg            # kernel + controller log stream
+talosctl -n 10.200.0.52 logs <service>   # e.g. etcd, kubelet
+talosctl -n 10.200.0.52 containers -k    # kubernetes-namespace containers (static pods)
+talosctl -n 10.200.0.52 version          # confirm the node is reachable
+talosctl -n 10.200.0.52 reboot           # graceful reboot
+talosctl -n 10.200.0.52 upgrade --image ghcr.io/siderolabs/installer:vX.Y.Z   # OS upgrade
 ```
 
 ### Changing the machine config
@@ -141,14 +141,14 @@ $EDITOR patches/common.yaml
 
 # 2. regenerate the base configs - one per machine type, both from the same common.yaml
 sops -d secrets-sops-all.yaml > out/.secrets.yaml
-talosctl gen config talos-proxmox-cluster https://192.168.1.252:6443 \
+talosctl gen config talos-proxmox-cluster https://talos-api.lan:6443 \
   --with-secrets out/.secrets.yaml \
   --kubernetes-version 1.36.2 \
   --output-types controlplane,talosconfig \
   --output out/base-cp \
   --config-patch @patches/common.yaml \
   --force
-talosctl gen config talos-proxmox-cluster https://192.168.1.252:6443 \
+talosctl gen config talos-proxmox-cluster https://talos-api.lan:6443 \
   --with-secrets out/.secrets.yaml \
   --kubernetes-version 1.36.2 \
   --output-types worker,talosconfig \
@@ -173,15 +173,15 @@ talosctl validate --config out/talos-cp1.yaml --mode metal
 talosctl validate --config out/w-1.yaml --mode metal
 
 # 5. push it to a node, one at a time
-talosctl -n 192.168.1.252 apply-config -f out/talos-cp1.yaml
+talosctl -n 10.200.0.52 apply-config -f out/talos-cp1.yaml
 
 # 6. confirm it actually applied before touching the other node
-talosctl -n 192.168.1.252 services              # everything still Running/OK?
+talosctl -n 10.200.0.52 services              # everything still Running/OK?
 kubectl get nodes                               # still Ready?
 
 # 7. repeat 5-6 for the other node, then a final whole-cluster check
 talosctl etcd members                           # cp1 only - w-1 isn't an etcd member
-talosctl -n 192.168.1.252,192.168.1.206 health   # everything OK or expected SKIP
+talosctl -n 10.200.0.52,10.200.0.7 health   # everything OK or expected SKIP
 kubectl get pods -A | grep -v Running            # empty - nothing stuck
 
 # 8. commit the patch change (out/ isn't committed - the patches are what's versioned)
@@ -200,7 +200,7 @@ Talos will tell you if you hit it: the error says something like *"static hostna
 set"* rather than a generic failure. When in doubt, try without `--mode=reboot` first; it's a
 safe no-op error if a reboot turns out to be required, it doesn't apply half the change.
 
-`talosctl` also has a lower-level `talosctl edit mconfig -n 192.168.1.252` which opens the
+`talosctl` also has a lower-level `talosctl edit mconfig -n 10.200.0.52` which opens the
 node's *live* config in `$EDITOR` and applies on save — convenient for a quick one-off tweak,
 but it bypasses `patches/common.yaml` entirely, so anything changed that way needs to be copied
 back into the patch by hand afterwards or the next regenerate-and-apply will silently revert it.
@@ -228,14 +228,14 @@ kubectl apply -f my-manifest.yaml         # deploy something
 ### Upgrading Kubernetes itself (separate from Talos OS upgrades)
 
 ```bash
-talosctl -n 192.168.1.252 upgrade-k8s --to 1.37.0
+talosctl -n 10.200.0.52 upgrade-k8s --to 1.37.0
 ```
 
 ### If you lose network access to the node
 
 You still have the Proxmox console (VNC/serial) for out-of-band access — a Talos machine has no
 shell, but the console shows boot/network diagnostics, which is the first thing to check if
-`talosctl` or `kubectl` can't reach `192.168.1.252` after a config change.
+`talosctl` or `kubectl` can't reach `10.200.0.52` after a config change.
 
 ## What was done to get here
 

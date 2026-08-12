@@ -33,12 +33,14 @@ here — just point DNS at the VPS IP and add the `HTTPRoute` in-cluster.
 
 ## ZFS
 
-Run on the Proxmox host (`192.168.1.201`) — the `rw=` clause is a colon-separated ACL of every
+Run on the Proxmox host `nas` (`10.200.0.20`, was `192.168.1.201` before the router migration -
+see [`router/README.md`](router/README.md)) — the `rw=` clause is a colon-separated ACL of every
 node IP allowed to mount the NFS export; add a new node's `/32` to the list rather than widening
-to a whole subnet:
+to a whole subnet. Kept the stale old-network entries below rather than pruning them - harmless,
+not worth the risk of a typo on a live export ACL for zero functional benefit:
 
 ```bash
-zfs set sharenfs="rw=@192.168.1.252/32:@192.168.1.206/32,no_root_squash,no_subtree_check" Main/data
+zfs set sharenfs="rw=@192.168.1.252/32:@192.168.1.206/32:@192.168.1.5/32:@10.200.0.52/32:@10.200.0.7/32,no_root_squash,no_subtree_check" Main/data
 ```
 
 ## Cluster facts
@@ -46,21 +48,30 @@ zfs set sharenfs="rw=@192.168.1.252/32:@192.168.1.206/32,no_root_squash,no_subtr
 | | |
 |---|---|
 | Cluster name | `talos-proxmox-cluster` |
-| Nodes | `talos-cp1` (`192.168.1.252`, control-plane), `w-1` (`192.168.1.206`, worker) — both static |
-| Interface | `ens18` (both nodes) |
-| Gateway | `192.168.1.254` |
+| Nodes | `talos-cp1` (`10.200.0.52`, control-plane), `w-1` (`10.200.0.7` - temporary, see below) — both static |
+| Interface | `ens18` (both nodes) - `talos-cp1` is also dual-homed on `ens19` (`10.200.0.52`), `ens18`'s old `192.168.1.252` kept as an inert rollback address, no longer routed |
+| Gateway | `10.200.0.1` (was `192.168.1.254` before the router migration) |
 | Talos version | v1.13.5 |
 | Kubernetes version | v1.36.2 |
 | CNI | [Cilium](https://cilium.io) (replaces flannel), kube-proxy-replacement mode, LoadBalancer IPs via L2 announcement (replaces the never-installed MetalLB) — see [Networking: Cilium](#networking-cilium) |
 | Role | single control-plane (`talos-cp1`) by design — a 2-node etcd (the earlier setup) has zero real fault tolerance anyway, since quorum of 2 needs both members healthy. `talos-cp1` has `allowSchedulingOnControlPlanes: true` so it still runs regular pods alongside `w-1`, not just etcd/control-plane |
 | Data disk | `sdb`, 430GB, XFS, mounted at `/var/mnt/data` on **each** node (see Storage section) — `longhorn-strict-local` volumes are pinned to whichever node the pod using them lands on, so both nodes need their own copy of this disk/mount, not a shared one |
 
-> Both nodes' static IPs (`192.168.1.252`, `192.168.1.206`) should be excluded from your router's
-> DHCP pool so they never get handed out to something else.
+> `w-1`'s `10.200.0.7` is temporary - `pve0` (the Proxmox host it runs on) ended up claiming the
+> originally-planned `10.200.0.6` by mistake during the migration and was left as-is; reconcile
+> both to clean, final addresses eventually. Both nodes' static IPs should stay excluded from
+> the router's DHCP pool (`.100`-`.199`) so they never get handed out to something else - see
+> `router/README.md`'s addressing table.
 
-`cluster.controlPlane.endpoint` and Cilium's `k8sServiceHost` are hardcoded to `192.168.1.252` —
-no longer a "gap" to fix, since with a single control-plane there's only one node either of
-these could ever point to.
+`cluster.controlPlane.endpoint` is `https://talos-api.lan:6443` (a floating DNS record on the
+Mikrotik - see `router/README.md` - rather than a literal IP, so it can survive control-plane
+ever moving to a different physical node). Cilium's `k8sServiceHost` is `10.200.0.52`. Both used
+to be hardcoded to `192.168.1.252` and both were genuinely risky to change - changing either one
+independently invalidates every service-account token cluster-wide, since Talos derives
+`--service-account-issuer`/`--api-audiences` from `cluster.controlPlane.endpoint` by default. Both
+are now explicitly pinned via `cluster.apiServer.extraArgs` in `talos/patches/common.yaml`
+instead, permanently decoupled from whatever this endpoint says - see `router/README.md`'s Phase
+3 notes for the full incident writeup (twice) and the actual safe procedure.
 
 ## Talos: day-to-day operations
 
@@ -72,10 +83,10 @@ the facts that don't change often (above).
 
 ## Router
 
-A Mikrotik router, managed with Terraform, is planned to sit behind the existing home network
-and host the homelab on its own isolated `10.200.0.0/24` segment — not deployed yet. See
-[`router/README.md`](router/README.md) for the Terraform config, setup steps, and the (currently
-unexecuted) checklist for migrating the Talos nodes onto it.
+A Mikrotik router, managed with Terraform, sits behind the existing home network and hosts the
+homelab on its own isolated `10.200.0.0/24` segment. See [`router/README.md`](router/README.md)
+for the Terraform config, addressing, and the cutover history (both Talos nodes and the Proxmox
+hosts are fully migrated onto it as of this writing).
 
 ## Networking: Cilium
 
@@ -89,7 +100,8 @@ Managed via Flux, same pattern as everything else in `clusters/homelab/apps/`:
 
 - `repositories/helm/cilium.yaml` — `HelmRepository` pointing at `https://helm.cilium.io/`.
 - `apps/cilium/release.yaml` — the `HelmRelease` (installed into `kube-system`, chart `1.19.6`).
-- `apps/cilium-config/lb-pool.yaml` — a `CiliumLoadBalancerIPPool` (`192.168.1.190`–`192.168.1.200`)
+- `apps/cilium-config/lb-pool.yaml` — a `CiliumLoadBalancerIPPool` (`10.200.0.90`–`10.200.0.99`,
+  was `192.168.1.190`–`192.168.1.200` before the router migration)
   and `CiliumL2AnnouncementPolicy`, the direct equivalent of MetalLB's IPAddressPool +
   L2Advertisement. This is its own Flux `Kustomization` with `dependsOn: [cilium]`, since its CRDs
   only exist once the Cilium HelmRelease has installed.
@@ -98,7 +110,7 @@ Key Helm values, and why each one is there (Talos needs some overrides other dis
 
 ```yaml
 kubeProxyReplacement: true
-k8sServiceHost: 192.168.1.252   # this node's static IP
+k8sServiceHost: 10.200.0.52   # this node's static IP
 k8sServicePort: 6443
 cgroup:
   autoMount:
@@ -191,8 +203,8 @@ declaratively owns a disk: which physical disk to use, what filesystem to put on
 mount it on the node. There is no `kubectl get uservolumeconfig` — the object doesn't exist in
 the Kubernetes API at all, only in Talos's own config/resource system on the node:
 ```bash
-talosctl -n 192.168.1.252 get volumestatus u-data     # provisioning result: partition, size, phase
-talosctl -n 192.168.1.252 get mountstatus              # confirms it's mounted at /var/mnt/data
+talosctl -n 10.200.0.52 get volumestatus u-data     # provisioning result: partition, size, phase
+talosctl -n 10.200.0.52 get mountstatus              # confirms it's mounted at /var/mnt/data
 ```
 
 ```yaml

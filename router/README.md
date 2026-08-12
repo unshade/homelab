@@ -368,29 +368,65 @@ Verify before moving to Phase 3: `talosctl -n 10.200.0.52 get addresses`, `talos
 None of this is in the hot path of the route-flip above - do it once both nodes are confirmed up
 on `10.200.0.0/24`. Status as of the actual migration:
 
-1. **`cluster.controlPlane.endpoint` - deliberately NOT changed, don't change it.** This isn't a
-   reachability setting - it's baked directly into the apiserver's `--service-account-issuer` and
-   `--api-audiences` flags (confirmed live: `talosctl -n <ip> get staticpods kube-apiserver -o
-   yaml`). Changing it **invalidates every already-issued service-account token cluster-wide** -
-   every pod using one (which is most of them: Flux's four controllers, cert-manager, cnpg,
-   Longhorn, cilium-operator, ...) starts failing with `Unauthorized` immediately, and kubelet only
-   refreshes a pod's mounted token on its own ~hour-long cycle, not on restart - so this doesn't
-   self-heal quickly. Hit this live: changed it to `10.200.0.52`, watched most of the cluster's
-   control-plane tooling crash-loop, reverted back to `192.168.1.252` within a few minutes once the
-   cause was found. `192.168.1.252` staying on `ens18` forever as the token-issuer identity is
-   fine and safe - same reasoning as `nas` staying dual-homed permanently, it doesn't mean
-   anything is meaningfully "still on the old network."
-   - **What you actually want (managing the cluster via the new network) doesn't need this at
-     all** - `talosctl`'s `endpoints`/`nodes` and `kubeconfig`'s `server:` field are pure
-     client-side settings, decoupled from the apiserver's own issuer flags. `talosctl config
-     endpoint 10.200.0.52`/`talosctl config node 10.200.0.52` works cleanly on its own. `talosctl
-     kubeconfig ... --force` does *not* work for this, though - it regenerates `server:` *from*
-     `cluster.controlPlane.endpoint`, so it comes back pointing at the old address every time.
-     Editing `talos/out/kubeconfig`'s `server:` line directly (`sed`/by hand) works fine instead -
-     TLS validates against `10.200.0.52` without issue since that address is already in the
-     apiserver's cert SANs (Talos manages those dynamically off the node's live addresses, see
-     the Cutover checklist's cert-SAN note above) - then re-run `talos/scripts/encrypt-secrets.sh`
-     to update the committed `kubeconfig.enc.yaml`.
+1. **`cluster.controlPlane.endpoint` - done, now `https://talos-api.lan:6443`** (the floating DNS
+   record on the Mikrotik, `main.tf`'s `routeros_ip_dns_record.talos_api` - a purpose-named record
+   rather than a literal IP, so control-plane can move to a different physical node later without
+   touching this again). Getting here took **two separate incidents** in the same session, worth
+   understanding fully before ever touching this field again:
+   - **Incident 1**: changing `cluster.controlPlane.endpoint` alone changes the apiserver's
+     `--service-account-issuer` flag too (confirmed live: `talosctl -n <ip> get staticpods
+     kube-apiserver -o yaml`), which **invalidates every already-issued service-account token
+     cluster-wide** - every pod using one (most of them: Flux's four controllers, cert-manager,
+     cnpg, Longhorn, cilium-operator, ...) fails with `Unauthorized` immediately, and kubelet only
+     refreshes a pod's mounted token on its own ~hour-long cycle, not on restart, so this doesn't
+     self-heal quickly on its own. **Fix**: pin `cluster.apiServer.extraArgs.service-account-issuer`
+     explicitly to kube-apiserver's own upstream default
+     (`https://kubernetes.default.svc.cluster.local` - what plain kubeadm leaves it as; it's just
+     an identity string compared inside already-validated tokens, never fetched, so it doesn't need
+     to be a real address) - decouples it from the endpoint permanently. Confirmed no gradual
+     multi-issuer migration is possible here first: `--config-patch`/`machineconfig patch` both
+     reject a list-valued `extraArgs` entry outright (decoder error: `unexpected type for yaml
+     sequence: v1alpha1.ArgValue`), a known unfixed upstream regression since Talos v1.12
+     ([siderolabs/talos#12210](https://github.com/siderolabs/talos/issues/12210), closed as not
+     planned) - a single string value patches fine, only lists are broken. So this was a direct,
+     single-shot swap instead, done deliberately: fresh etcd backup, the full recovery staged
+     *before* touching config (Cilium agent restart for the ClusterIP gotcha below, plus every real
+     API-calling pod identified from actual RBAC bindings + running pods - ~45 of them, broader
+     than the ~9 that happened to crash loudly) and fired immediately after applying, rather than
+     waiting on kubelet's slow natural refresh. Total disruption: under 2 minutes.
+   - **Incident 2**: with the issuer decoupled, changing `cluster.controlPlane.endpoint` alone
+     *still* broke every token again - `--api-audiences` derives from the endpoint too,
+     **independently of `--service-account-issuer`**, and is invisible in any config-file diff
+     (Talos computes it purely internally, never rendering it as text anywhere until the live
+     static pod manifest - a clean `diff` of the fully-rendered machine config genuinely shows zero
+     change here, since this flag isn't derived from anything that appears in that file at all).
+     Found out by actually applying the change and reading `talosctl get staticpods kube-apiserver
+     -o yaml` afterward, not from any dry-run. **Fix**: same pattern - pin
+     `cluster.apiServer.extraArgs.api-audiences` too, but as its own **separate, prior** step: pin
+     it to its **current** value first (`https://192.168.1.252:6443` - same string, not the new
+     one), which is a genuine no-op for tokens since nothing about what's currently valid changes,
+     only where the value comes from. Verified live as a true no-op (full cluster-wide pod sweep
+     stayed clean through the apiserver restart this still causes). *Only after* that was confirmed
+     stable on its own did changing `cluster.controlPlane.endpoint` become safe - verified this time
+     against the live rendered static pod manifest immediately after applying, not a config diff.
+   - **The actual lesson**: a clean machine-config diff does not prove no live-behavior change.
+     Talos derives multiple apiserver flags from `cluster.controlPlane.endpoint` internally, and
+     not all of them are visible as text anywhere in the config you're diffing. Before ever
+     touching this field again, check `cluster.apiServer.extraArgs` in `common.yaml` for what's
+     already pinned (as of this writing: both `service-account-issuer` and `api-audiences`) - if a
+     *third* Talos-internal flag turns out to derive from this endpoint too, expect a third
+     incident, and verify against the live static pod manifest, not the config file, before
+     trusting any future change here.
+   - `talosctl`'s `endpoints`/`nodes` and `kubeconfig`'s `server:` field are separate, pure
+     client-side settings, decoupled from the apiserver's own issuer/audience flags - not affected
+     by any of the above. `talosctl config endpoint 10.200.0.52`/`talosctl config node
+     10.200.0.52` works cleanly. `talosctl kubeconfig ... --force` regenerates `server:` *from*
+     `cluster.controlPlane.endpoint`, which would now correctly produce `talos-api.lan` - but
+     editing `talos/out/kubeconfig`'s `server:` line directly to the raw IP (`sed`/by hand) is what
+     was actually done, kept that way deliberately: one less DNS dependency for the one tool you'd
+     reach for if DNS itself were ever the thing broken. Re-run
+     `talos/scripts/encrypt-secrets.sh` after any change here to update the committed
+     `kubeconfig.enc.yaml`.
 2. **Cilium's `k8sServiceHost`** in `clusters/homelab/apps/cilium/release.yaml` - done, now
    `10.200.0.52`. And the `CiliumLoadBalancerIPPool` range in
    `clusters/homelab/apps/cilium-config/lb-pool.yaml` - done, now `10.200.0.90`-`.99` (not
