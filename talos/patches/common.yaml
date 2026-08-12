@@ -43,6 +43,40 @@ cluster:
   # Allows running workload on control-plane nodes - both nodes are, there
   # are no separate workers.
   allowSchedulingOnControlPlanes: true
+  apiServer:
+    extraArgs:
+      # Decouples the service-account token issuer from
+      # cluster.controlPlane.endpoint (which Talos derives --service-account-
+      # issuer/--api-audiences from by default otherwise) - permanently
+      # stable from here on, using kube-apiserver's own upstream default
+      # value (what plain kubeadm leaves it as, unless overridden - it's
+      # just an identity string compared inside already-validated tokens,
+      # never actually fetched, so it doesn't need to be a real address the
+      # way cluster.controlPlane.endpoint genuinely does).
+      #
+      # This was meant to be a gradual, zero-downtime multi-issuer migration
+      # (old value first/primary, new value added second/accepted-only, per
+      # kube-apiserver's own documented behavior and the kOps service-
+      # account-issuer-migration guide) - NOT POSSIBLE on this Talos version:
+      # confirmed live, both --config-patch and machineconfig patch reject a
+      # list-valued extraArgs entry outright (decoder error: "unexpected
+      # type for yaml sequence: v1alpha1.ArgValue"), and this is a known,
+      # unfixed upstream regression (siderolabs/talos#12210, broken since
+      # v1.12, closed as not planned) - not something fixable by better
+      # patch syntax. A single string value patches fine, confirmed - only
+      # multi-value lists are broken.
+      #
+      # So this is a direct, single-shot swap instead: every existing
+      # service-account token becomes invalid the moment this applies
+      # (confirmed live the first time this was attempted with a different
+      # value, by accident - see router/README.md's Phase 3 notes for the
+      # full incident writeup). Done deliberately this time, with the fix
+      # already staged and fired immediately: Cilium agents restarted (their
+      # own tracked kubernetes-service backend goes stale on any apiserver
+      # restart, separate known gotcha) and every real API-calling pod
+      # force-deleted in the same pass, rather than waiting on kubelet's own
+      # slow natural token-refresh cycle.
+      service-account-issuer: https://kubernetes.default.svc.cluster.local
 ---
 apiVersion: v1alpha1
 kind: UserVolumeConfig
