@@ -55,6 +55,7 @@ variable "talos_nodes" {
   default = {
     talos-cp1 = "10.200.0.52"
     w-1       = "10.200.0.7"
+    w-2       = "10.200.0.8"
   }
 }
 
