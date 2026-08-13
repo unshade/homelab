@@ -33,7 +33,7 @@ machine:
     # against factory.talos.dev - see README for the exact command to
     # re-resolve this if schematic.yaml ever changes, or for a node that
     # needs a different extension set.
-    image: factory.talos.dev/installer/53513e54bb39202f35694412577a6bc53d484744d35a126e5d42ef34785c0d83:v1.13.5
+    image: factory.talos.dev/installer/53513e54bb39202f35694412577a6bc53d484744d35a126e5d42ef34785c0d83:v1.13.8
 cluster:
   network:
     cni:
