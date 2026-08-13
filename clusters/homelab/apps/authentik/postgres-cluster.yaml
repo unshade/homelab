@@ -3,7 +3,7 @@ kind: Cluster
 metadata:
   name: authentik-postgres
 spec:
-  instances: 2
+  instances: 3
   storage:
     size: 5Gi
     storageClass: longhorn-strict-local

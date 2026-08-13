@@ -7,7 +7,7 @@ kind: Cluster
 metadata:
   name: immich-postgres
 spec:
-  instances: 2
+  instances: 3
   storage:
     size: 20Gi
     storageClass: longhorn-strict-local
