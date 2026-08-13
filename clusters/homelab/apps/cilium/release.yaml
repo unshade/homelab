@@ -24,8 +24,23 @@ spec:
     ipam:
       mode: kubernetes
     kubeProxyReplacement: true
-    k8sServiceHost: 10.200.0.52
-    k8sServicePort: 6443
+    # Talos runs KubePrism (a local load-balancing proxy to the real
+    # apiserver) on every node at 127.0.0.1:7445 by default - pointing
+    # here instead of a specific control-plane node's raw IP is Cilium's
+    # own documented recommended pattern for Talos, specifically to avoid
+    # hardcoding a single node's address into the CNI's control
+    # connection. Previously pinned to talos-cp1's IP directly
+    # (10.200.0.52:6443): every kube-apiserver restart (even without the
+    # node's IP changing) left Cilium's own tracked backend for the
+    # in-cluster kubernetes Service (10.96.0.1:443) stuck refusing
+    # traffic with "no route to host", even though `cilium-dbg service
+    # list` always showed the correct backend - only a full cilium-agent
+    # restart cleared it (confirmed live, twice, during the v1.13.8
+    # upgrade). Root cause looks like Cilium's own client connection to
+    # that fixed address not reconnecting cleanly after the backend
+    # drops, rather than anything wrong with the routing table itself.
+    k8sServiceHost: localhost
+    k8sServicePort: 7445
     cgroup:
       autoMount:
         enabled: false
