@@ -1,0 +1,66 @@
+machine:
+  network:
+    interfaces:
+      # Bare metal - real NIC name (enp1s0), not the ensXX naming the Proxmox
+      # VMs get. Confirmed via `talosctl get links -n 10.200.0.247 --insecure`
+      # during hardware discovery.
+      - interface: enp1s0
+        addresses:
+          - 10.200.0.8/24
+        dhcp: false
+        routes:
+          - network: 0.0.0.0/0
+            gateway: 10.200.0.1
+    nameservers:
+      - 10.200.0.1
+      - 1.1.1.1
+      - 1.0.0.1
+  install:
+    disk: /dev/sdb
+    # Bare metal's only real disk (sda is the USB installer media, not a
+    # target - confirmed via `talosctl get disks`). Different schematic from
+    # common.yaml's (see schematic-baremetal.yaml): drops qemu-guest-agent,
+    # meaningless on real hardware, keeps iscsi-tools/util-linux-tools for
+    # Longhorn. Overrides common.yaml's install.image (this is a scalar
+    # field, not a list, so the per-node patch cleanly replaces it rather
+    # than merging/duplicating).
+    image: factory.talos.dev/installer/613e1592b2da41ae5e265e8789429f22e121aab91cb4deb6bc3c0b6262961245:v1.13.8
+---
+apiVersion: v1alpha1
+kind: HostnameConfig
+hostname: w-2
+---
+# Caps the system/ephemeral partition instead of letting it consume the
+# whole 128GB disk, so there's room left for a UserVolumeConfig below to
+# contribute the remainder to Longhorn - same disk, two partitions. Only
+# takes effect at first provisioning (install-time only, per Talos docs) -
+# must be present in the config from the very first apply-config, can't be
+# patched in after the fact.
+apiVersion: v1alpha1
+kind: VolumeConfig
+name: EPHEMERAL
+provisioning:
+  diskSelector:
+    match: system_disk
+  maxSize: 60GiB
+  grow: false
+---
+# common.yaml also defines a `data` UserVolumeConfig (!system_disk,
+# 400GB) via the shared patch - confirmed via a local dry-run
+# (gen config + machineconfig patch + validate, no live node touched)
+# that `talosctl machineconfig patch` treats same kind+name documents as
+# a full replace, not a merge or duplicate: this one entirely supersedes
+# common.yaml's for this node, cleanly, with no ambiguity. Deliberately
+# kept the same name ("data") to match every other node - reuses
+# common.yaml's existing kubelet.extraMounts (/var/mnt/data) and Longhorn's
+# defaultDataPath (/var/mnt/data/longhorn) with zero extra config, since
+# Longhorn auto-registers any node where that path exists.
+apiVersion: v1alpha1
+kind: UserVolumeConfig
+name: data
+provisioning:
+  diskSelector:
+    match: system_disk
+  minSize: 40GiB
+filesystem:
+  type: xfs

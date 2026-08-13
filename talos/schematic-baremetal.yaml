@@ -1,0 +1,16 @@
+# The Image Factory (factory.talos.dev) input that produced the schematic ID
+# baked into patches/w-2.yaml's machine.install.image. Not consumed by
+# anything automatically - this is documentation of what's in that image,
+# and the input to re-resolving it by hand if the extension list changes.
+# See README's "Changing the machine config" section for the exact command.
+#
+# Same as schematic.yaml but without siderolabs/qemu-guest-agent - that
+# extension talks to a QEMU/Proxmox virtual serial device that doesn't
+# exist on real hardware, so it's dead weight on any bare-metal node.
+# Use this (not schematic.yaml) for future bare-metal nodes; keep using
+# schematic.yaml for Proxmox VMs.
+customization:
+  systemExtensions:
+    officialExtensions:
+      - siderolabs/iscsi-tools      # iSCSI, required by Longhorn's V1 engine
+      - siderolabs/util-linux-tools # fstrim/nsenter, required by Longhorn
