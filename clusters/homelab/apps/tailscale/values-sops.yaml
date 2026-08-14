@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Secret
+metadata:
+    name: tailscale-values
+stringData:
+    values.yaml: ENC[AES256_GCM,data:rzpMN32o2tsTJMxfkxipMglMtZCuVEkAE9A6UbNyeEpdDSf+NravZQThEku89lxKEjTyf2Gt4scLkwLom2Ugu4xip5L3khI0ibUDc87esiCJZEKOxvFRzGl1ikS2I+tcfOVbHbcdN5Lb6W3/aJbWSlijPRJSBa4B,iv:b/0HHlYOBIt+9xoVQn1B1Cqx532IettHqc05Zxj/RSo=,tag:WJck9Xt9KztoCd/DOwFybA==,type:str]
+sops:
+    encrypted_regex: ^(data|stringData|secrets)$
+    lastmodified: "2026-08-14T18:07:32Z"
+    mac: ENC[AES256_GCM,data:1d3PIrTqsEmv199qbr4AnTzmKNDrNmfgwM12dphdys09k7qPA/RpFTSNGSy3SVefTfwoX6WD5WY7Gk4c/xrnXpJTWnPzwnSzytXmbyS1YaWqUYNmoRajJYHpz3nwtAz7WCIZ5TfQvJFQEqsTQ94sID4QoPr135O3svy2AQAW4b0=,iv:y5jg+LQL6fwph0xfAXVrDMhbMCjTktfty5wuIGeHaPA=,tag:RCJKFOxUw9R2RWS24Y5AaA==,type:str]
+    pgp:
+        - created_at: "2026-08-14T18:07:32Z"
+          enc: |-
+            -----BEGIN PGP MESSAGE-----
+
+            hF4Dk7dKfW9EQIESAQdAakXuQYohBvKCoQSoi4a9GDGkqQ65Xm8UlfCzSafvEWEw
+            Bv65mHhX3Vv1q8SL91D9NWsi4QYlPSFXlCnwikozNxHYWaW4NwkmAFK7CveL5110
+            1GgBCQIQ1PSUZJzY1H15MsbtxmhUSTHHcllUcOdhZyHokaG61eCWIqBFpRVHIlIB
+            hY6k80N+k3a6JRSMkfOHIi/vr1FH/pIV8HRW4DKc3PqT+DOjJDftCw460R77rdTu
+            5mtlJlUmf9tbiQ==
+            =nyrk
+            -----END PGP MESSAGE-----
+          fp: 0838E38422232D44B96B6C7659A7C95E7A016E5A
+    version: 3.13.3

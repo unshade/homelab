@@ -1,0 +1,35 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: tailscale-operator
+  namespace: tailscale
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: tailscale-operator
+      version: 1.102.2
+      sourceRef:
+        kind: HelmRepository
+        name: tailscale
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  # values-sops.yaml provides oauth.clientId/oauth.clientSecret (the chart's
+  # own expected shape - confirmed against its values.yaml) as a whole
+  # embedded values.yaml blob rather than individual targetPath overrides,
+  # same as every other secret-backed values field in this repo but using
+  # Flux's other valuesFrom form (valuesKey names the key holding the whole
+  # fragment, instead of a single scalar + targetPath). The OAuth client
+  # needs write access to Devices Core in the Tailscale admin console for
+  # the operator to register/manage devices - not something visible from
+  # here, verify it there if the operator pod fails to start.
+  valuesFrom:
+    - kind: Secret
+      name: tailscale-values
+      valuesKey: values.yaml

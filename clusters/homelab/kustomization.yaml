@@ -24,3 +24,4 @@ resources:
   - ./kustomizations/seerr.yaml
   - ./kustomizations/prowlarr.yaml
   - ./kustomizations/immich.yaml
+  - ./kustomizations/tailscale.yaml
