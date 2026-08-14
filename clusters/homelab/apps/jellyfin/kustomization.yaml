@@ -15,3 +15,4 @@ resources:
   - qbittorrent-config-pvc.yaml
   - qbittorrent-deployment.yaml
   - qbittorrent-service.yaml
+  - qbittorrent-tailscale-ingress.yaml

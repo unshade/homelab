@@ -1,0 +1,35 @@
+---
+# Exposes qbittorrent's WebUI on the tailnet as
+# https://qbittorrent.moose-pogona.ts.net, separate from the public
+# envoy-gateway/HTTPRoute path jellyfin itself uses (route.yaml) - this
+# stays tailnet-only, no public DNS/route involved.
+#
+# ingressClassName: tailscale hands this Ingress to the tailscale operator
+# instead of envoy-gateway. spec.tls[0].hosts[0] sets the MagicDNS name
+# explicitly - confirmed against the operator's own source
+# (cmd/k8s-operator/ingress.go, hostnameForIngress()): without it, the
+# hostname defaults to "<namespace>-<name>-ingress"
+# (jellyfin-qbittorrent-ingress), which works but is uglier.
+#
+# Requires HTTPS Certificates enabled in the Tailscale admin console
+# (Settings -> General) - the operator logs a warning and the cert
+# provisioning fails silently otherwise.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: qbittorrent
+spec:
+  ingressClassName: tailscale
+  tls:
+    - hosts:
+        - qbittorrent
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: qbittorrent
+                port:
+                  number: 8080
