@@ -1,6 +1,6 @@
 services:
   haproxy:
-    image: haproxy:lts-alpine
+    image: haproxy:lts-alpine@sha256:fb87fc81943143b9acaea7442973e6ba654035fff76ffe7af6829dd1bcb0f7a5
     container_name: haproxy
     restart: unless-stopped
     # host networking: needs to bind the public IP on 80/443 directly, and

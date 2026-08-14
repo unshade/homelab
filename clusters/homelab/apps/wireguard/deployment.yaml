@@ -23,7 +23,7 @@ spec:
       # always finish before the main container starts).
       initContainers:
         - name: wireguard-up
-          image: linuxserver/wireguard:1.0.20260223
+          image: linuxserver/wireguard:1.0.20260223@sha256:3abfd4b82212106e357989750b9c0c9859aa511f5305a9a55c18c8de7198b655
           command: ["wg-quick", "up", "wg0"]
           securityContext:
             capabilities:
@@ -35,7 +35,7 @@ spec:
               readOnly: true
       containers:
         - name: haproxy
-          image: haproxy:lts-alpine
+          image: haproxy:lts-alpine@sha256:fb87fc81943143b9acaea7442973e6ba654035fff76ffe7af6829dd1bcb0f7a5
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

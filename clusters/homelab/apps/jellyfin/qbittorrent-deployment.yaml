@@ -26,7 +26,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: gluetun
-          image: qmcgaw/gluetun:v3.41.2
+          image: qmcgaw/gluetun:v3.41.2@sha256:280809bc6900ed06d6529ad246499103efb31fd80c6327cbfaf90de0b17c3a99
           # Minimal set, verified live (not guessed): NET_ADMIN alone hit
           # "chown ... operation not permitted" writing the OpenVPN config;
           # adding CHOWN got past that but then hit a permission-denied
@@ -85,7 +85,7 @@ spec:
               cpu: 500m
               memory: 128Mi
         - name: qbittorrent
-          image: linuxserver/qbittorrent:5.2.3
+          image: linuxserver/qbittorrent:5.2.3@sha256:6816d2b144b1eb97665f886e41e18a14d026ba78c9d0953fc68a1211ea819433
           securityContext:
             allowPrivilegeEscalation: false
             seccompProfile:
