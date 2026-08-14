@@ -15,6 +15,7 @@ spec:
   # operator) plus VectorChord loaded declaratively as an OCI extension
   # image, exactly as recommended in immich-charts' own reference manifest:
   # https://github.com/immich-app/immich-charts/blob/main/local/cloudnative-pg.yaml
+  # renovate: datasource=docker
   imageName: ghcr.io/cloudnative-pg/postgresql:18-standard-trixie
   postgresql:
     shared_preload_libraries:

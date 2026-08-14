@@ -1,0 +1,69 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:best-practices"
+  ],
+  "kubernetes": {
+    "managerFilePatterns": [
+      "/clusters/.*\\.yaml$/"
+    ]
+  },
+  "flux": {
+    "managerFilePatterns": [
+      "/clusters/.*\\.yaml$/"
+    ]
+  },
+  "customManagers": [
+    {
+      "description": "Images pinned inside HelmRelease values, which no built-in manager reads. Annotate the line above the tag with `# renovate: datasource=docker depName=<image>`.",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/clusters/.*\\.yaml$/"
+      ],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+versioning=(?<versioning>\\S+))?\\s*\\n\\s*(?:tag|version):\\s*[\"']?(?<currentValue>[^\"'\\s]+)[\"']?"
+      ],
+      "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}"
+    },
+    {
+      "description": "Full image references under an `imageName:` key, as CNPG's Cluster CR uses. The built-in kubernetes manager only reads `image:`, and the tag-only manager above cannot split a repository from its tag. Annotate the line above with `# renovate: datasource=docker`.",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/clusters/.*\\.yaml$/"
+      ],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)(?:\\s+versioning=(?<versioning>\\S+))?\\s*\\n\\s*imageName:\\s*[\"']?(?<depName>[^\"'\\s:]+):(?<currentValue>[^\"'\\s]+)[\"']?"
+      ],
+      "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}docker{{/if}}"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Talos itself (talos/, router/) is deliberately out of scope - version bumps there need the etcd-backup + one-node-at-a-time + health-check process documented in talos/README.md, not an automated PR. Kept explicit even though managerFilePatterns above already excludes these paths by only matching clusters/, as a second line of defense if that scoping ever changes.",
+      "matchFileNames": ["talos/**", "router/**"],
+      "enabled": false
+    },
+    {
+      "matchManagers": ["custom.regex"],
+      "pinDigests": false
+    },
+    {
+      "description": "immich's image tag is set via a bare `tag:` sub-field (no `repository:` alongside it) in release.yaml - the custom regex manager only captures that tag, so there's no digest sub-field for Renovate to populate. Matches the upstream example's own reasoning for the same exclusion.",
+      "matchDepNames": ["ghcr.io/immich-app/immich-server"],
+      "pinDigests": false
+    },
+    {
+      "matchCategories": [
+        "docker"
+      ],
+      "enabled": true
+    },
+    {
+      "matchManagers": [
+        "docker"
+      ],
+      "enabled": true,
+      "groupName": "docker dependencies"
+    }
+  ]
+}
