@@ -4943,7 +4943,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/helm-controller:v1.5.4@sha256:e2de206f637ae113f628806c087f021173e696bc311e3417f5d408286b3509a2
+        image: ghcr.io/fluxcd/helm-controller:v1.6.3@sha256:16ada99456385100698a5d7adf90aba8a2089d987ab541c9566b6d7b0e897038
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
