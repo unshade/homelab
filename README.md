@@ -40,7 +40,7 @@ to a whole subnet. Kept the stale old-network entries below rather than pruning 
 not worth the risk of a typo on a live export ACL for zero functional benefit:
 
 ```bash
-zfs set sharenfs="rw=@192.168.1.252/32:@192.168.1.206/32:@192.168.1.5/32:@10.200.0.52/32:@10.200.0.7/32,no_root_squash,no_subtree_check" Main/data
+zfs set sharenfs="rw=@192.168.1.252/32:@192.168.1.206/32:@192.168.1.5/32:@10.200.0.52/32:@10.200.0.7/32:@10.200.0.8/32,no_root_squash,no_subtree_check" Main/data
 ```
 
 ## Cluster facts
