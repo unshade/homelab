@@ -25,3 +25,4 @@ resources:
   - ./kustomizations/prowlarr.yaml
   - ./kustomizations/immich.yaml
   - ./kustomizations/tailscale.yaml
+  - ./kustomizations/radar.yaml

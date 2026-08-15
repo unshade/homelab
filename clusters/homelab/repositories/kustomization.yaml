@@ -11,3 +11,4 @@ resources:
   - ./helm/metrics-server.yaml
   - ./helm/csi-driver-nfs.yaml
   - ./helm/tailscale.yaml
+  - ./helm/radar.yaml

@@ -1,0 +1,35 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: radar
+  namespace: radar
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: radar
+      version: 1.10.0
+      sourceRef:
+        kind: HelmRepository
+        name: radar
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  # Chart defaults kept as-is deliberately - already security-conscious out
+  # of the box (RBAC: helm/secrets/viewRBAC/viewWebhooks/podExec all off,
+  # readOnlyRootFilesystem, non-root, timeline in memory not sqlite). Not
+  # exposed outside the cluster yet (no Ingress/HTTPRoute) - reachable via
+  # `kubectl port-forward` only until that's explicitly wired up. auth.mode
+  # is still "none" for the same reason every other freshly-deployed app in
+  # this repo starts unexposed: it doesn't matter until something can
+  # actually reach it from outside. If/when this gets exposed, auth.mode:
+  # proxy is the natural fit - it trusts upstream X-Forwarded-User/
+  # X-Forwarded-Groups headers, which is exactly what Authentik's outpost
+  # already forwards (as X-authentik-username/X-authentik-groups) via the
+  # same SecurityPolicy pattern sonarr/radarr/prowlarr use.
+  values: {}
