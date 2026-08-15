@@ -47,6 +47,8 @@ spec:
         use_ssl: false
     server:
       replicas: 1
+      containerSecurityContext:
+        allowPrivilegeEscalation: false
       resources:
         requests:
           # Actual usage runs ~700Mi - the old 512Mi request was under
@@ -78,6 +80,8 @@ spec:
           mountPath: /data
     worker:
       replicas: 1
+      containerSecurityContext:
+        allowPrivilegeEscalation: false
       resources:
         requests:
           # Actual usage runs ~285Mi, slightly above the old 256Mi request.

@@ -32,6 +32,7 @@ spec:
         - name: sonarr
           image: linuxserver/sonarr:4.0.19@sha256:373159ba768e23a3a1c497d9f2b936addf8fd5b1fdce7dd6a14080ac928bfda0
           securityContext:
+            allowPrivilegeEscalation: false
             seccompProfile:
               type: RuntimeDefault
           env:

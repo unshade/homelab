@@ -33,3 +33,7 @@ spec:
     - kind: Secret
       name: tailscale-values
       valuesKey: values.yaml
+  values:
+    operatorConfig:
+      securityContext:
+        allowPrivilegeEscalation: false
