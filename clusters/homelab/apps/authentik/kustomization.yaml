@@ -9,3 +9,4 @@ resources:
   - media-pvc.yaml
   - release.yaml
   - reference-grant.yaml
+  - radar-tailscale-ingress.yaml

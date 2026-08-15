@@ -1,0 +1,39 @@
+---
+# Exposes Radar on the tailnet, behind real Authentik auth, as
+# https://radar.moose-pogona.ts.net.
+#
+# Points at ak-outpost-tailscale - a dedicated Proxy-type outpost (created
+# separately from the authentik Embedded Outpost that sonarr/radarr/
+# prowlarr's providers use, and that Longhorn's provider also lives on),
+# auto-deployed by Authentik itself (app.kubernetes.io/managed-by:
+# goauthentik.io, same as ak-outpost-ldap - not managed by anything in this
+# repo). The "Provider for Radar" (Proxy mode, external_host=this hostname,
+# internal_host=radar.radar.svc.cluster.local:9280) assigned to this
+# outpost makes it do the whole job itself: auth-check, login redirect, and
+# forwarding to Radar's Service internally once authenticated.
+#
+# Different mechanism from sonarr/radarr/prowlarr's security-policy.yaml
+# (Envoy ext_authz calling authentik-server as a side-channel check while
+# envoy-gateway itself still proxies to the real app) - that's
+# envoy-gateway-specific and the Tailscale operator's Ingress can't attach a
+# SecurityPolicy, so this routes the whole request through the outpost
+# directly instead.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: radar
+spec:
+  ingressClassName: tailscale
+  tls:
+    - hosts:
+        - radar
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ak-outpost-tailscale
+                port:
+                  number: 9000

@@ -20,16 +20,28 @@ spec:
   upgrade:
     remediation:
       retries: 3
-  # Chart defaults kept as-is deliberately - already security-conscious out
-  # of the box (RBAC: helm/secrets/viewRBAC/viewWebhooks/podExec all off,
-  # readOnlyRootFilesystem, non-root, timeline in memory not sqlite). Not
-  # exposed outside the cluster yet (no Ingress/HTTPRoute) - reachable via
-  # `kubectl port-forward` only until that's explicitly wired up. auth.mode
-  # is still "none" for the same reason every other freshly-deployed app in
-  # this repo starts unexposed: it doesn't matter until something can
-  # actually reach it from outside. If/when this gets exposed, auth.mode:
-  # proxy is the natural fit - it trusts upstream X-Forwarded-User/
-  # X-Forwarded-Groups headers, which is exactly what Authentik's outpost
-  # already forwards (as X-authentik-username/X-authentik-groups) via the
-  # same SecurityPolicy pattern sonarr/radarr/prowlarr use.
-  values: {}
+  # Chart defaults kept mostly as-is - already security-conscious out of the
+  # box (RBAC: helm/viewRBAC/viewWebhooks/podExec all off, readOnlyRoot
+  # Filesystem, non-root, timeline in memory not sqlite).
+  #
+  # Now exposed on the tailnet behind Authentik (Proxy mode, same pattern as
+  # Longhorn - see apps/authentik/ for the Ingress pointing at
+  # authentik-server, which handles the whole auth-check + proxy job before
+  # traffic ever reaches this Service). Because Authentik intercepts
+  # everything for that hostname, auth.mode here can stay "none" - unauthed
+  # requests never reach this pod at all, so Radar doesn't need to gate
+  # access itself. auth.mode: proxy would additionally surface *who* made
+  # each request inside Radar's own UI/timeline (via X-Forwarded-User/
+  # X-Forwarded-Groups, which Authentik's outpost forwards as
+  # X-authentik-username/X-authentik-groups) - worth revisiting later, not
+  # required for access control.
+  #
+  # rbac.secrets: true - explicit tradeoff, not a default: K8s RBAC can't
+  # scope to just Helm's release secrets, so this is genuinely all-Secrets
+  # read access, cluster-wide. Chosen over rbac.helm: true (which implies
+  # this AND adds full write access, enabling install/upgrade/rollback from
+  # Radar's UI, bypassing the normal git-commit -> Flux-reconcile flow this
+  # repo otherwise always goes through) - this repo doesn't want that path.
+  values:
+    rbac:
+      secrets: true
