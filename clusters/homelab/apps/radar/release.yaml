@@ -42,6 +42,14 @@ spec:
   # this AND adds full write access, enabling install/upgrade/rollback from
   # Radar's UI, bypassing the normal git-commit -> Flux-reconcile flow this
   # repo otherwise always goes through) - this repo doesn't want that path.
+  #
+  # rbac.portForward: true - lets Radar's UI open pods/portforward
+  # subresource connections (used its own "Connect"/port-forward feature,
+  # hit live: "cannot create resource pods/portforward ... in namespace
+  # kube-system"). Narrower than the two flags above: it tunnels network
+  # traffic to a pod's existing port, no read/write access to cluster
+  # objects themselves.
   values:
     rbac:
       secrets: true
+      portForward: true
