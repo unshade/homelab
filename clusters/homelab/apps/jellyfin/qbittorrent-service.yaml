@@ -1,13 +1,15 @@
 ---
-# NodePort: reachable from other pods (radarr/sonarr/prowlarr configuring
-# it as a download client) via the ClusterIP a NodePort Service still gets,
-# and from the LAN via <node-ip>:<nodePort> - no public route at all.
+# Plain ClusterIP - reachable from other pods (radarr/sonarr/prowlarr
+# configuring it as a download client) via the Service's ClusterIP, same as
+# any other in-cluster Service. Was NodePort for direct LAN access
+# (<node-ip>:<nodePort>); dropped now that the WebUI is reachable via the
+# tailscale Ingress (qbittorrent-tailscale-ingress.yaml) instead - no public
+# route either way, this just narrows the exposure to tailnet-only.
 apiVersion: v1
 kind: Service
 metadata:
   name: qbittorrent
 spec:
-  type: NodePort
   ports:
     - name: webui
       port: 8080

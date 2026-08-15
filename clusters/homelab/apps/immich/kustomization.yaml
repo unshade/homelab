@@ -10,4 +10,3 @@ resources:
   - library-pvc.yaml
   - release.yaml
   - route.yaml
-  - server-nodeport.yaml
