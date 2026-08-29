@@ -18,7 +18,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: website
-          image: ghcr.io/unshade/website:v0.1.1@sha256:33201e760b0a66ace4f616d4f022356a44acfcddd105de8e4b5783c8a85fe681
+          image: ghcr.io/unshade/website:v0.1.2@sha256:460d08056191758cb76fdce011a21186501ecd9185dc559027c4f4588951eabd
           securityContext:
             allowPrivilegeEscalation: false
             seccompProfile:
