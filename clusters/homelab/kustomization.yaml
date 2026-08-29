@@ -26,3 +26,4 @@ resources:
   - ./kustomizations/immich.yaml
   - ./kustomizations/tailscale.yaml
   - ./kustomizations/radar.yaml
+  - ./kustomizations/website.yaml
