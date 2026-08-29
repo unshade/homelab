@@ -18,9 +18,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: website
-          # unshade/website's docker-image.yml CI pushes :latest on every
-          # push to main - no fixed tag/digest to pin to.
-          image: ghcr.io/unshade/website:latest
+          image: ghcr.io/unshade/website:v0.1.1@sha256:33201e760b0a66ace4f616d4f022356a44acfcddd105de8e4b5783c8a85fe681
           securityContext:
             allowPrivilegeEscalation: false
             seccompProfile:
