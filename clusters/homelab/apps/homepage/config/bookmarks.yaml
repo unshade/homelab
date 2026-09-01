@@ -1,1 +1,12 @@
-[]
+---
+# AdGuard lives on Home Assistant hardware, outside this cluster entirely -
+# no Kubernetes object to annotate, so this is the one hand-written
+# exception to the "fully annotation-driven" approach (see kustomization.yaml).
+# Plain bookmark, not a widget: that URL is Home Assistant's authenticated
+# ingress proxy for the add-on (no direct AdGuard port confirmed reachable),
+# and homepage's widget can't hold an HA login session to query it live.
+- Network:
+    - AdGuard Home:
+        - abbr: AG
+          href: "http://homeassistant.local:8123/a0d7b954_adguard"
+          icon: adguard-home.png

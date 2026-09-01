@@ -18,6 +18,9 @@ background:
   opacity: 80
 cardBlur: md
 layout:
+  Network:
+    style: row
+    columns: 4
   Media:
     style: row
     columns: 3
