@@ -29,3 +29,4 @@ configMapGenerator:
       - config/proxmox.yaml
       - config/custom.css
       - config/custom.js
+      - config/images/background.jpg

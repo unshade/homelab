@@ -1,9 +1,19 @@
 ---
 title: nstnr
 theme: dark
-color: slate
+color: indigo
 headerStyle: clean
 hideVersion: true
+# Background image is config/images/background.jpg, mounted at
+# /app/public/images/background.jpg - see deployment.yaml and
+# kustomization.yaml's configMapGenerator. opacity-only (no blur/
+# saturate/brightness) because those are mutually exclusive with
+# cardBlur below - see gethomepage.dev/configs/settings under
+# "Card Background Blur".
+background:
+  image: /images/background.jpg
+  opacity: 80
+cardBlur: md
 layout:
   Media:
     style: row
