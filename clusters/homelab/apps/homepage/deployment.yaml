@@ -42,7 +42,14 @@ spec:
             - name: HOMEPAGE_ALLOWED_HOSTS
               value: "$(MY_POD_IP):3000,home.nstnr.com"
           envFrom:
-            - secretRef:
+            # prefix here, not HOMEPAGE_VAR_-prefixed keys in the Secret
+            # itself - keeps secret-sops.yaml's keys plain (RADARR_APIKEY,
+            # not HOMEPAGE_VAR_RADARR_APIKEY) while still landing as
+            # HOMEPAGE_VAR_RADARR_APIKEY in the container, which is what
+            # the {{HOMEPAGE_VAR_...}} substitution in each app's
+            # gethomepage.dev/widget.key annotation looks up.
+            - prefix: HOMEPAGE_VAR_
+              secretRef:
                 name: homepage-secrets
                 # SOPS-encrypted placeholders until filled in - see
                 # secret-sops.yaml's header comment.
