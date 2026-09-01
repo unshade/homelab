@@ -21,13 +21,13 @@ layout:
   Network:
     style: row
     columns: 4
-  Media:
-    style: row
-    columns: 3
-  Photos:
+  Arr Stack:
     style: row
     columns: 4
-  Identity:
+  Media:
+    style: row
+    columns: 2
+  Photos:
     style: row
     columns: 4
   Site:

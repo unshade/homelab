@@ -7,7 +7,7 @@ metadata:
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: Radarr
     gethomepage.dev/description: Movie collection manager
-    gethomepage.dev/group: Media
+    gethomepage.dev/group: Arr Stack
     gethomepage.dev/icon: radarr.png
     gethomepage.dev/pod-selector: "app=radarr"
     gethomepage.dev/widget.type: radarr
