@@ -17,6 +17,9 @@ background:
   image: /images/background.jpg
   opacity: 80
 cardBlur: md
+providers:
+  longhorn:
+    url: http://longhorn-frontend.longhorn-system.svc.cluster.local
 layout:
   Network:
     style: row
