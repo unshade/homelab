@@ -1,0 +1,7 @@
+# source-controller's default excludes drop common image extensions
+# (.jpg/.jpeg/.png/.gif/...) from the GitRepository artifact entirely -
+# silently, no error, kustomize-controller just can't find the file at
+# build time. Un-exclude the specific images this repo actually needs
+# built into a ConfigMap (apps/homepage's background image) rather than
+# re-including all images repo-wide.
+!clusters/homelab/apps/homepage/config/images/*.jpg
