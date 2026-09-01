@@ -18,6 +18,20 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: qbittorrent
+  annotations:
+    # homepage (apps/homepage) - no rule sets spec.rules[].host (only the
+    # TLS SNI host below), so href is set explicitly rather than relying on
+    # homepage's usual host-derived link.
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: qBittorrent
+    gethomepage.dev/description: Torrent client (tailnet-only)
+    gethomepage.dev/group: Media
+    gethomepage.dev/icon: qbittorrent.png
+    gethomepage.dev/href: https://qbittorrent.moose-pogona.ts.net
+    gethomepage.dev/pod-selector: "app=qbittorrent"
+    gethomepage.dev/widget.type: qbittorrent
+    gethomepage.dev/widget.url: http://qbittorrent.jellyfin.svc.cluster.local:8080
+    gethomepage.dev/widget.key: "{{HOMEPAGE_VAR_QBITTORRENT_APIKEY}}"
 spec:
   ingressClassName: tailscale
   tls:

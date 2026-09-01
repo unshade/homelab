@@ -1,10 +1,12 @@
 ---
 mode: cluster
-# Every service in this repo is exposed via Gateway API (Envoy Gateway),
-# never networking.k8s.io Ingress (see README's Ingress section) - so only
-# the HTTPRoute discovery source is worth turning on. Discovery itself is
-# opt-in per-resource regardless (gethomepage.dev/enabled: "true"), this
-# just controls which resource kinds get scanned at all.
-ingress: false
+# Public services are all Gateway API HTTPRoutes (Envoy Gateway) - but a
+# few tailnet-only apps (qbittorrent, radar, longhorn) use a plain
+# networking.k8s.io Ingress instead, handed to the Tailscale operator via
+# ingressClassName: tailscale (see e.g. apps/jellyfin/
+# qbittorrent-tailscale-ingress.yaml). Both need to be on for annotation
+# discovery to see them - it stays opt-in per-resource either way
+# (gethomepage.dev/enabled: "true").
+ingress: true
 traefik: false
 gateway: true

@@ -2,8 +2,11 @@
 title: nstnr
 theme: dark
 color: indigo
-headerStyle: clean
+headerStyle: boxedWidgets
 hideVersion: true
+statusStyle: dot
+useEqualHeights: true
+fullWidth: true
 # Background image is config/images/background.jpg, mounted at
 # /app/public/images/background.jpg - see deployment.yaml and
 # kustomization.yaml's configMapGenerator. opacity-only (no blur/
@@ -17,7 +20,7 @@ cardBlur: md
 layout:
   Media:
     style: row
-    columns: 4
+    columns: 3
   Photos:
     style: row
     columns: 4

@@ -1,8 +1,9 @@
 ---
 # Read-only, cluster-wide - homepage's Kubernetes provider (kubernetes.yaml)
 # lists namespaces/pods/nodes for the pod-selector health dot and the
-# cluster/nodes widget, and HTTPRoutes for gethomepage.dev/* annotation
-# discovery (services.yaml stays empty on purpose - see kustomization.yaml).
+# cluster/nodes widget, HTTPRoutes for gethomepage.dev/* annotation
+# discovery on public services, and Ingresses for the same on tailnet-only
+# ones (services.yaml stays empty on purpose - see kustomization.yaml).
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -16,6 +17,9 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: [namespaces, pods, nodes]
+    verbs: [get, list]
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses]
     verbs: [get, list]
   - apiGroups: [gateway.networking.k8s.io]
     resources: [httproutes, gateways]
