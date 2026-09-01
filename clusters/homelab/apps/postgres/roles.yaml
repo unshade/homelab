@@ -54,3 +54,17 @@ spec:
   databaseRoleReclaimPolicy: retain
   passwordSecret:
     name: prowlarr-postgres-credentials
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: jellystat
+spec:
+  cluster:
+    name: general-postgres
+  name: jellystat
+  login: true
+  createdb: false
+  databaseRoleReclaimPolicy: retain
+  passwordSecret:
+    name: jellystat-postgres-credentials

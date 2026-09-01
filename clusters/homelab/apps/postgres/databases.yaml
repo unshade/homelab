@@ -84,3 +84,16 @@ spec:
   name: prowlarr-log
   owner: prowlarr
   databaseReclaimPolicy: retain
+---
+# Jellystat (jellystat.gitbook.io) uses a single database, default name
+# "jellystat".
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: jellystat
+spec:
+  cluster:
+    name: general-postgres
+  name: jellystat
+  owner: jellystat
+  databaseReclaimPolicy: retain
