@@ -10,3 +10,4 @@ resources:
   - release.yaml
   - reference-grant.yaml
   - radar-tailscale-ingress.yaml
+  - longhorn-tailscale-ingress.yaml

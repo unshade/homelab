@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: longhorn
+spec:
+  ingressClassName: tailscale
+  tls:
+    - hosts:
+        - longhorn
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ak-outpost-tailscale
+                port:
+                  number: 9000
