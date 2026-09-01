@@ -27,3 +27,4 @@ resources:
   - ./kustomizations/tailscale.yaml
   - ./kustomizations/radar.yaml
   - ./kustomizations/website.yaml
+  - ./kustomizations/homepage.yaml

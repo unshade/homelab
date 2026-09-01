@@ -61,6 +61,19 @@ spec:
       route:
         main:
           enabled: true
+          # homepage (apps/homepage) discovers this HTTPRoute via its
+          # gateway:true kubernetes provider - see gethomepage.dev/configs/kubernetes.
+          annotations:
+            gethomepage.dev/enabled: "true"
+            gethomepage.dev/name: Authentik
+            gethomepage.dev/description: Identity provider / forward auth
+            gethomepage.dev/group: Identity
+            gethomepage.dev/icon: authentik.png
+            gethomepage.dev/pod-selector: "app.kubernetes.io/name=authentik,app.kubernetes.io/component=server"
+            gethomepage.dev/widget.type: authentik
+            gethomepage.dev/widget.url: http://authentik-server.authentik.svc.cluster.local
+            gethomepage.dev/widget.key: "{{HOMEPAGE_VAR_AUTHENTIK_APIKEY}}"
+            gethomepage.dev/widget.version: "2"
           parentRefs:
             - name: main
               namespace: envoy-gateway-system

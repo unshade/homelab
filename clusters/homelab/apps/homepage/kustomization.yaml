@@ -1,0 +1,30 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: homepage
+
+resources:
+  - namespace.yaml
+  - rbac.yaml
+  - secret-sops.yaml
+  - deployment.yaml
+  - service.yaml
+  - route.yaml
+  - security-policy.yaml
+
+# Hash-suffixed so editing config/*.yaml forces a Deployment rollout - the
+# Deployment's subPath volume mounts otherwise never notice a ConfigMap
+# update (subPath breaks kubelet's normal auto-refresh symlink swap).
+# services.yaml/bookmarks.yaml stay empty - discovery is fully annotation-
+# driven (gethomepage.dev/* on each app's HTTPRoute) to stay Kubernetes-
+# native rather than duplicating a service list here.
+configMapGenerator:
+  - name: homepage-config
+    files:
+      - config/settings.yaml
+      - config/kubernetes.yaml
+      - config/widgets.yaml
+      - config/services.yaml
+      - config/bookmarks.yaml
+      - config/docker.yaml
+      - config/custom.css
+      - config/custom.js

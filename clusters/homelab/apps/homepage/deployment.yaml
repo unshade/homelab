@@ -1,0 +1,101 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: homepage
+  labels:
+    app: homepage
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: homepage
+  template:
+    metadata:
+      labels:
+        app: homepage
+    spec:
+      serviceAccountName: homepage
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: homepage
+          image: ghcr.io/gethomepage/homepage:v2.1.2@sha256:da9dca9ec258c628146bed1445da0853f2b88f0b10bafd97c091de807c363d60
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+            - name: MY_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: HOMEPAGE_ALLOWED_HOSTS
+              value: "$(MY_POD_IP):3000,home.nstnr.com"
+          envFrom:
+            - secretRef:
+                name: homepage-secrets
+                # SOPS-encrypted placeholders until filled in - see
+                # secret-sops.yaml's header comment.
+                optional: false
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /api/healthcheck
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - mountPath: /app/config/custom.js
+              name: config
+              subPath: custom.js
+            - mountPath: /app/config/custom.css
+              name: config
+              subPath: custom.css
+            - mountPath: /app/config/bookmarks.yaml
+              name: config
+              subPath: bookmarks.yaml
+            - mountPath: /app/config/docker.yaml
+              name: config
+              subPath: docker.yaml
+            - mountPath: /app/config/kubernetes.yaml
+              name: config
+              subPath: kubernetes.yaml
+            - mountPath: /app/config/services.yaml
+              name: config
+              subPath: services.yaml
+            - mountPath: /app/config/settings.yaml
+              name: config
+              subPath: settings.yaml
+            - mountPath: /app/config/widgets.yaml
+              name: config
+              subPath: widgets.yaml
+            - mountPath: /app/config/logs
+              name: logs
+      volumes:
+        - name: config
+          configMap:
+            # Real name is generated (hash-suffixed) by kustomization.yaml's
+            # configMapGenerator - kustomize rewrites this reference.
+            name: homepage-config
+        - name: logs
+          emptyDir: {}

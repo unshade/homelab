@@ -1,0 +1,10 @@
+---
+mode: cluster
+# Every service in this repo is exposed via Gateway API (Envoy Gateway),
+# never networking.k8s.io Ingress (see README's Ingress section) - so only
+# the HTTPRoute discovery source is worth turning on. Discovery itself is
+# opt-in per-resource regardless (gethomepage.dev/enabled: "true"), this
+# just controls which resource kinds get scanned at all.
+ingress: false
+traefik: false
+gateway: true

@@ -15,6 +15,9 @@ spec:
     - group: gateway.envoyproxy.io
       kind: SecurityPolicy
       namespace: jellyfin
+    - group: gateway.envoyproxy.io
+      kind: SecurityPolicy
+      namespace: homepage
   to:
     - group: ""
       kind: Service

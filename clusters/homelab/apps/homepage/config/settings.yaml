@@ -1,0 +1,19 @@
+---
+title: nstnr
+theme: dark
+color: slate
+headerStyle: clean
+hideVersion: true
+layout:
+  Media:
+    style: row
+    columns: 4
+  Photos:
+    style: row
+    columns: 4
+  Identity:
+    style: row
+    columns: 4
+  Site:
+    style: row
+    columns: 4
