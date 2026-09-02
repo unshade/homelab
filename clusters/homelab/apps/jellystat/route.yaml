@@ -11,7 +11,7 @@ metadata:
     gethomepage.dev/icon: jellystat.png
     gethomepage.dev/pod-selector: "app=jellystat"
     gethomepage.dev/widget.type: jellystat
-    gethomepage.dev/widget.url: http://jellystat.jellyfin.svc.cluster.local
+    gethomepage.dev/widget.url: http://jellystat.jellystat.svc.cluster.local
     gethomepage.dev/widget.key: "{{HOMEPAGE_VAR_JELLYSTAT_APIKEY}}"
 spec:
   parentRefs:

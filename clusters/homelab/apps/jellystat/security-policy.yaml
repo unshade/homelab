@@ -1,7 +1,7 @@
 ---
-# Same forward-auth pattern as apps/radarr, apps/sonarr, apps/prowlarr - the
-# ReferenceGrant this needs to reach authentik-server is already covered by
-# apps/authentik/reference-grant.yaml's existing "jellyfin" namespace entry.
+# Same forward-auth pattern as apps/radarr, apps/sonarr, apps/prowlarr - see
+# apps/authentik/reference-grant.yaml's "jellystat" namespace entry for the
+# matching ReferenceGrant this needs to reach authentik-server.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
