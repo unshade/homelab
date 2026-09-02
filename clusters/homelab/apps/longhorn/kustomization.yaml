@@ -9,3 +9,5 @@ resources:
   - storage-class.yaml
   - storage-class-replicated.yaml
   - storage-class-single-replica.yaml
+  - recurring-job-backup.yaml
+  - backup-target.yaml

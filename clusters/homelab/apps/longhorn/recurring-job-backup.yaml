@@ -1,0 +1,21 @@
+---
+# Daily S3 backup for every volume - the "default" group applies
+# automatically to any volume with no recurring job explicitly assigned
+# (see recurring-job-group.longhorn.io/<name> / recurring-job.longhorn.io/
+# <name> labels on Volume objects to opt a specific volume in/out of this
+# or add it to a different group instead).
+#
+# 3am (low-traffic homelab hours), keep the last 7 daily backups. Backups
+# go to whatever's set as the Backup Target (Longhorn UI > Settings >
+# General - see apps/longhorn/secret-sops.yaml for the S3 credentials).
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: backup-daily
+spec:
+  cron: "0 3 * * *"
+  task: backup
+  groups:
+    - default
+  retain: 7
+  concurrency: 2

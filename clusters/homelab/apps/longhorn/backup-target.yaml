@@ -1,0 +1,11 @@
+---
+apiVersion: longhorn.io/v1beta2
+kind: BackupTarget
+metadata:
+  name: default
+  annotations:
+    description: Infomaniak Swiss Backup (S3)
+spec:
+  backupTargetURL: s3://longhorn@us-east-1/
+  credentialSecret: longhorn-s3-backup
+  pollInterval: 5m0s
