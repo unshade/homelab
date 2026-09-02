@@ -4,6 +4,7 @@ namespace: longhorn-system
 
 resources:
   - namespace.yaml
+  - secret-sops.yaml
   - release.yaml
   - storage-class.yaml
   - storage-class-replicated.yaml
