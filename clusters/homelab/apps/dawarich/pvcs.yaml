@@ -1,0 +1,39 @@
+---
+# Shared between the web and sidekiq containers of the same pod (see
+# deployment.yaml) - RWO is fine since both always land on the same node
+# by construction, no need for RWX/NFS here.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dawarich-public
+spec:
+  storageClassName: longhorn-single-replica
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dawarich-watched
+spec:
+  storageClassName: longhorn-single-replica
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dawarich-storage
+spec:
+  storageClassName: longhorn-single-replica
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

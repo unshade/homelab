@@ -1,0 +1,21 @@
+---
+# Replaces longhorn-strict-local going forward - same single replica (no
+# extra copies to manage/resync), but dataLocality: best-effort instead of
+# strict-local. strict-local refuses to serve a volume from anywhere but
+# the node it first landed on, which fights things like CNPG failover
+# (an instance can get rescheduled to a different node than its volume).
+# best-effort still prefers same-node placement for performance, but can
+# fall back to serving cross-node instead of getting stuck.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-single-replica
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  numberOfReplicas: "1"
+  dataLocality: "best-effort"

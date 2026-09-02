@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: dawarich
+
+resources:
+  - namespace.yaml
+  - postgres-cluster.yaml
+  - secret-sops.yaml
+  - redis.yaml
+  - pvcs.yaml
+  - deployment.yaml
+  - service.yaml
+  - route.yaml

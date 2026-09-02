@@ -7,3 +7,4 @@ resources:
   - release.yaml
   - storage-class.yaml
   - storage-class-replicated.yaml
+  - storage-class-single-replica.yaml
