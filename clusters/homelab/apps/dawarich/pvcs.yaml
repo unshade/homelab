@@ -2,12 +2,18 @@
 # Shared between the web and sidekiq containers of the same pod (see
 # deployment.yaml) - RWO is fine since both always land on the same node
 # by construction, no need for RWX/NFS here.
+#
+# Plain "longhorn" SC (Longhorn's own 3-replica default, not one of the
+# custom single-replica ones) - this is Dawarich's actual location data
+# (imports, exports, GPS history), unlike dawarich-postgres which is fine
+# on longhorn-single-replica since it's already replicated at the database
+# layer via CNPG's own 3-instance streaming replication.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: dawarich-public
 spec:
-  storageClassName: longhorn-single-replica
+  storageClassName: longhorn
   accessModes:
     - ReadWriteOnce
   resources:
@@ -19,7 +25,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: dawarich-watched
 spec:
-  storageClassName: longhorn-single-replica
+  storageClassName: longhorn
   accessModes:
     - ReadWriteOnce
   resources:
@@ -31,7 +37,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: dawarich-storage
 spec:
-  storageClassName: longhorn-single-replica
+  storageClassName: longhorn
   accessModes:
     - ReadWriteOnce
   resources:
