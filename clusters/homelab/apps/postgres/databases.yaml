@@ -97,3 +97,21 @@ spec:
   name: jellystat
   owner: jellystat
   databaseReclaimPolicy: retain
+---
+# Dawarich (dawarich.app) - single database, PostGIS + pgcrypto (see
+# cluster.yaml's postgresql.extensions for the postgis image itself).
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: dawarich
+spec:
+  cluster:
+    name: general-postgres
+  name: dawarich
+  owner: dawarich
+  databaseReclaimPolicy: retain
+  extensions:
+    - name: postgis
+      ensure: present
+    - name: pgcrypto
+      ensure: present

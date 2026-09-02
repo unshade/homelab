@@ -7,6 +7,19 @@ spec:
   storage:
     size: 10Gi
     storageClass: longhorn-strict-local
+  # PostGIS for Dawarich (apps/dawarich) - CNPG's declarative ImageVolume
+  # extension mechanism, same as apps/immich's dedicated cluster uses for
+  # vchord. Dawarich originally got its own dedicated cluster over this one
+  # for extension-blast-radius isolation, same reasoning as Immich - but
+  # unlike Immich, nothing here actually needs that isolation badly enough
+  # to justify a second cluster, so it's on the shared one instead.
+  postgresql:
+    extensions:
+      - name: postgis
+        image:
+          reference: ghcr.io/cloudnative-pg/postgis-extension:3.6.2-18-trixie
+        ld_library_path:
+          - system
   bootstrap:
     initdb: {}
   resources:

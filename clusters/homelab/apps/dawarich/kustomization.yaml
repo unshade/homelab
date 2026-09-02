@@ -4,7 +4,6 @@ namespace: dawarich
 
 resources:
   - namespace.yaml
-  - postgres-cluster.yaml
   - secret-sops.yaml
   - redis.yaml
   - pvcs.yaml

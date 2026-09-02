@@ -63,7 +63,7 @@ spec:
             - name: REDIS_URL
               value: redis://dawarich-redis.dawarich.svc.cluster.local:6379
             - name: DATABASE_HOST
-              value: dawarich-postgres-rw.dawarich.svc.cluster.local
+              value: general-postgres-rw.postgres.svc.cluster.local
             - name: DATABASE_PORT
               value: "5432"
             - name: DATABASE_USERNAME
@@ -71,8 +71,8 @@ spec:
             - name: DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: dawarich-postgres-app
-                  key: password
+                  name: dawarich-secrets
+                  key: postgres-password
             - name: DATABASE_NAME
               value: dawarich
             - name: APPLICATION_HOSTS
@@ -166,7 +166,7 @@ spec:
             - name: REDIS_URL
               value: redis://dawarich-redis.dawarich.svc.cluster.local:6379
             - name: DATABASE_HOST
-              value: dawarich-postgres-rw.dawarich.svc.cluster.local
+              value: general-postgres-rw.postgres.svc.cluster.local
             - name: DATABASE_PORT
               value: "5432"
             - name: DATABASE_USERNAME
@@ -174,8 +174,8 @@ spec:
             - name: DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: dawarich-postgres-app
-                  key: password
+                  name: dawarich-secrets
+                  key: postgres-password
             - name: DATABASE_NAME
               value: dawarich
             - name: APPLICATION_HOSTS

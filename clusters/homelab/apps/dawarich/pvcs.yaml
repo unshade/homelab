@@ -5,9 +5,10 @@
 #
 # Plain "longhorn" SC (Longhorn's own 3-replica default, not one of the
 # custom single-replica ones) - this is Dawarich's actual location data
-# (imports, exports, GPS history), unlike dawarich-postgres which is fine
-# on longhorn-single-replica since it's already replicated at the database
-# layer via CNPG's own 3-instance streaming replication.
+# (imports, exports, GPS history). Postgres itself lives on the shared
+# general-postgres cluster (apps/postgres/) instead of a dedicated one -
+# no Longhorn-level replication concern here at all, that cluster's
+# storage is CNPG's own concern.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
