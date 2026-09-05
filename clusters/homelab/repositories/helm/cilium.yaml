@@ -3,6 +3,11 @@ apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
   name: cilium
+  # namespace is also applied via repositories/kustomization.yaml's
+  # top-level `namespace:` field, but it's set explicitly here too so
+  # Renovate's flux manager (which parses this file as-is, without running
+  # kustomize) can resolve HelmRelease sourceRefs pointing at flux-system.
+  namespace: flux-system
 spec:
   interval: 24h
   url: https://helm.cilium.io/
