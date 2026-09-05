@@ -23,7 +23,7 @@ spec:
       # always finish before the main container starts).
       initContainers:
         - name: wireguard-up
-          image: linuxserver/wireguard:1.0.20260223@sha256:3abfd4b82212106e357989750b9c0c9859aa511f5305a9a55c18c8de7198b655
+          image: linuxserver/wireguard:1.0.20260223@sha256:bf03578ef7318ccc7675b4a82beac4d35cd0da2253194f6b6ecf61656b40f0ee
           command: ["wg-quick", "up", "wg0"]
           securityContext:
             capabilities:
