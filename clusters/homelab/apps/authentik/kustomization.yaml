@@ -5,7 +5,9 @@ namespace: authentik
 resources:
   - namespace.yaml
   - secret-sops.yaml
+  - backup-secret-sops.yaml
   - postgres-cluster.yaml
+  - backup.yaml
   - media-pvc.yaml
   - release.yaml
   - reference-grant.yaml

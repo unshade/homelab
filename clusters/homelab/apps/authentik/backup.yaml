@@ -1,0 +1,39 @@
+# Barman Cloud plugin backup for authentik-postgres: continuous WAL archiving + base
+# backups to S3 (Infomaniak Swiss Backup, same provider as Longhorn).
+# ObjectStore must live in the same namespace as the Cluster.
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: authentik-postgres-backup
+spec:
+  # 30 days of PITR window (base backups + WAL older than this are pruned).
+  retentionPolicy: 30d
+  configuration:
+    destinationPath: s3://cnpg/authentik-postgres/
+    endpointURL: https://s3.swiss-backup02.infomaniak.com
+    s3Credentials:
+      accessKeyId:
+        name: authentik-postgres-s3-backup
+        key: ACCESS_KEY_ID
+      secretAccessKey:
+        name: authentik-postgres-s3-backup
+        key: ACCESS_SECRET_KEY
+    wal:
+      compression: gzip
+    data:
+      compression: gzip
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: authentik-postgres-daily
+spec:
+  # 6-field cron (with seconds): every day at 03:00.
+  schedule: "0 0 3 * * *"
+  backupOwnerReference: self
+  immediate: true
+  cluster:
+    name: authentik-postgres
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io

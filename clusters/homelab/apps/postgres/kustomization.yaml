@@ -5,6 +5,8 @@ namespace: postgres
 resources:
   - namespace.yaml
   - secret-sops.yaml
+  - backup-secret-sops.yaml
   - cluster.yaml
+  - backup.yaml
   - roles.yaml
   - databases.yaml

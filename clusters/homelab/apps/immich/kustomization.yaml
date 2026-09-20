@@ -5,7 +5,9 @@ namespace: immich
 resources:
   - namespace.yaml
   - repository.yaml
+  - backup-secret-sops.yaml
   - postgres-cluster.yaml
+  - backup.yaml
   - library-pv.yaml
   - library-pvc.yaml
   - release.yaml
