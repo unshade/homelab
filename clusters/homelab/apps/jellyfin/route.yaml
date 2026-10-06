@@ -37,6 +37,11 @@ spec:
           name: jellyfin
           port: 80
           weight: 1
+      # No timeout: streaming a film is a single long-lived response, and any
+      # finite budget here truncates it.
+      timeouts:
+        request: 18000s
+        backendRequest: 18000s
       matches:
         - path:
             type: PathPrefix
