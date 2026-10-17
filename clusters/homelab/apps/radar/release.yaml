@@ -49,7 +49,24 @@ spec:
   # kube-system"). Narrower than the two flags above: it tunnels network
   # traffic to a pod's existing port, no read/write access to cluster
   # objects themselves.
+  #
+  # additionalRules: patch on Deployments/StatefulSets/DaemonSets - backs
+  # Radar's "Restart workload" button (a rollout restart is just a patch
+  # bumping the kubectl.kubernetes.io/restartedAt pod-template annotation;
+  # hit live: "cannot patch resource deployments ... in namespace
+  # jellyfin"). The chart has no dedicated flag for this. Tradeoff: K8s
+  # RBAC can't restrict *which* fields a patch touches, so this is
+  # technically full spec write on those kinds (image, replicas, ...) -
+  # though anything diverging from git gets reverted by Flux's next
+  # reconcile anyway. No create/delete, no scale subresource.
   values:
     rbac:
       secrets: true
       portForward: true
+      additionalRules:
+        - apiGroups: ["apps"]
+          resources:
+            - deployments
+            - statefulsets
+            - daemonsets
+          verbs: ["patch"]
