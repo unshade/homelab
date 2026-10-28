@@ -43,7 +43,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: redis
-          image: redis:8.10-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0
+          image: redis:8.10-alpine@sha256:47b08295737773de3b711fb86f13ae802f5074e96a9a2d29f5f80164ac08c046
           # Matches upstream's own docker-compose command - no AOF, periodic
           # RDB snapshots only. This is just a job queue, not durable state.
           args:
