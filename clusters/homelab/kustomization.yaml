@@ -25,8 +25,6 @@ resources:
   - ./kustomizations/prowlarr.yaml
   - ./kustomizations/immich.yaml
   - ./kustomizations/jellystat.yaml
-  - ./kustomizations/dawarich.yaml
   - ./kustomizations/tailscale.yaml
   - ./kustomizations/radar.yaml
   - ./kustomizations/website.yaml
-  - ./kustomizations/homepage.yaml

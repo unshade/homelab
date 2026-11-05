@@ -17,9 +17,6 @@ spec:
       namespace: jellyfin
     - group: gateway.envoyproxy.io
       kind: SecurityPolicy
-      namespace: homepage
-    - group: gateway.envoyproxy.io
-      kind: SecurityPolicy
       namespace: jellystat
   to:
     - group: ""
