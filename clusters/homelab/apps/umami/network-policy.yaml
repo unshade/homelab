@@ -1,0 +1,59 @@
+---
+# Ingress: only the Envoy Gateway proxy pods (stats.nstnr.com, see
+# route.yaml) - dashboard and tracker traffic all arrive through it. Kubelet
+# health probes come from the node itself, which Cilium always allows.
+#
+# Egress:
+#   - DNS to CoreDNS, to resolve general-postgres-rw.postgres.svc
+#   - Postgres on general-postgres. All instances, not just the current
+#     primary: the -rw Service follows the primary, which can move on
+#     failover/switchover.
+# No internet: telemetry is off (DISABLE_TELEMETRY) and the GeoIP database
+# ships in the image. If a server-side feature ever needs the internet, it
+# shows up as connection timeouts in the umami logs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: umami
+spec:
+  podSelector:
+    matchLabels:
+      app: umami
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: envoy
+              gateway.envoyproxy.io/owning-gatewayclass: main
+      ports:
+        - port: 3000
+          protocol: TCP
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: postgres
+          podSelector:
+            matchLabels:
+              cnpg.io/cluster: general-postgres
+      ports:
+        - port: 5432
+          protocol: TCP
