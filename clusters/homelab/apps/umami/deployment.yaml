@@ -50,7 +50,7 @@ spec:
             # settings in the stock image: next.config rewrites the new paths
             # to the real handlers, and scripts/update-tracker.js (run at
             # container start) bakes the collect endpoint into the tracker.
-            # Embed with: <script defer src="https://umami.nstnr.com/nstnr.js"
+            # Embed with: <script defer src="https://stats.nstnr.com/nstnr.js"
             #   data-website-id="..."></script>
             # The old /script.js and /api/send keep working too.
             - name: TRACKER_SCRIPT_NAME
