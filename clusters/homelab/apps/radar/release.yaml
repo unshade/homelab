@@ -59,7 +59,16 @@ spec:
   # technically full spec write on those kinds (image, replicas, ...) -
   # though anything diverging from git gets reverted by Flux's next
   # reconcile anyway. No create/delete, no scale subresource.
+  #
+  # allowedHosts: since chart 1.20.0, Radar with auth.mode none only answers
+  # requests whose Host is localhost, an IP, its Service name or a listed host
+  # (DNS-rebinding protection). The chart adds its own ingress/httpRoute
+  # hostnames automatically, but Radar is exposed through Authentik's
+  # tailscale Ingress instead (apps/authentik/radar-tailscale-ingress.yaml),
+  # which keeps the original Host header - so that hostname is listed here.
   values:
+    allowedHosts:
+      - radar.moose-pogona.ts.net
     rbac:
       secrets: true
       portForward: true
