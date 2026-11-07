@@ -97,3 +97,15 @@ spec:
   name: jellystat
   owner: jellystat
   databaseReclaimPolicy: retain
+---
+# Umami (umami.is) - single database, no extensions needed.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: umami
+spec:
+  cluster:
+    name: general-postgres
+  name: umami
+  owner: umami
+  databaseReclaimPolicy: retain

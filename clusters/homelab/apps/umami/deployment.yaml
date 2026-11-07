@@ -1,0 +1,90 @@
+---
+# Umami (umami.is) - web analytics. Stateless: everything lives in the
+# "umami" database on the shared general-postgres cluster (apps/postgres).
+# The container runs `prisma migrate deploy` on every start
+# (scripts/check-db.js), so upgrades apply schema migrations themselves.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: umami
+  labels:
+    app: umami
+spec:
+  replicas: 1
+  # Recreate so two versions never run migrations against the DB at once.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: umami
+  template:
+    metadata:
+      labels:
+        app: umami
+    spec:
+      securityContext:
+        # nextjs:nodejs in the upstream image
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
+      containers:
+        - name: umami
+          image: ghcr.io/umami-software/umami:3.4.1@sha256:e69d1a7932e9dab0fc523edc7be1f3a53f3c261f57856fc2167ae74a8fc022e8
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+            - name: TZ
+              value: Europe/Paris
+            - name: DISABLE_TELEMETRY
+              value: "1"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: umami-secrets
+                  key: database-url
+            - name: APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: umami-secrets
+                  key: app-secret
+            - name: TWO_FACTOR_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: umami-secrets
+                  key: two-factor-encryption-key
+          ports:
+            - name: http
+              containerPort: 3000
+          startupProbe:
+            httpGet:
+              path: /api/heartbeat
+              port: http
+            periodSeconds: 5
+            # first boot runs all migrations
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /api/heartbeat
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/heartbeat
+              port: http
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi

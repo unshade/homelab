@@ -68,3 +68,17 @@ spec:
   databaseRoleReclaimPolicy: retain
   passwordSecret:
     name: jellystat-postgres-credentials
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: umami
+spec:
+  cluster:
+    name: general-postgres
+  name: umami
+  login: true
+  createdb: false
+  databaseRoleReclaimPolicy: retain
+  passwordSecret:
+    name: umami-postgres-credentials
