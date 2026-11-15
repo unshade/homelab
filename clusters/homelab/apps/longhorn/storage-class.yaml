@@ -1,6 +1,18 @@
 ---
-# No longer the default (see storage-class-single-replica.yaml) - kept
-# around for existing volumes still on it, not meant for new PVCs anymore.
+# The class for CNPG/Postgres instance volumes (apps/postgres, apps/authentik,
+# apps/immich). One Longhorn replica, always on the pod's own node: Postgres
+# reads/writes hit local disk, and redundancy comes from CNPG's own
+# replication across its 3 instances - a second Longhorn copy would only
+# duplicate that and add write latency.
+#
+# A volume here can't move off its node, so its instance waits (Pending)
+# while that node is down and resumes when it's back; the database keeps
+# serving from its other instances. Draining works thanks to the Longhorn
+# nodeDrainPolicy in release.yaml - switch over any CNPG primary on the node
+# first (kubectl cnpg promote). If a node is gone for good, rebuild its
+# instance elsewhere with `kubectl cnpg destroy <cluster> <instance>`.
+#
+# Not for regular app data: one copy only, with no redundancy of its own.
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:

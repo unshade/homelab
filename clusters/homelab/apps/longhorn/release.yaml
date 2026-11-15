@@ -31,3 +31,12 @@ spec:
       # Subdirectory on the /var/mnt/data SSD (not the mount root), leaving
       # room for other uses of that disk later.
       defaultDataPath: /var/mnt/data/longhorn
+      # Default (block-if-contains-last-replica) blocks draining *every* node:
+      # each one holds the only replica of some longhorn-strict-local CNPG
+      # volumes, by design (Postgres replicates itself). This lets a drain
+      # finish once those replicas are stopped - their data stays on the
+      # node's disk and the CNPG instance resumes when the node comes back,
+      # while the cluster keeps serving from its other instances. Before
+      # draining a node, switch over any CNPG primary on it first
+      # (kubectl cnpg promote) - the -primary PDBs block that eviction.
+      nodeDrainPolicy: allow-if-replica-is-stopped
