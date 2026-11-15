@@ -18,3 +18,4 @@ spec:
   # https://gateway.envoyproxy.io/news/releases/matrix/.
   ref:
     tag: v1.10.0
+    digest: sha256:dcb82a14c04b426615a71d97222c7edf9f5ff58b800d241e71ac5784ae6dc7b7
