@@ -10,7 +10,15 @@ spec:
   chartRef:
     kind: OCIRepository
     name: gateway-helm
+  # The chart ships the Gateway API and Envoy Gateway CRDs in its crds/
+  # directory. Helm (and Flux, by default: Skip) never updates CRDs on
+  # upgrade, which would leave them at the version first installed - but
+  # each Envoy Gateway minor needs its own (v1.10 requires Gateway API
+  # v1.6). CreateReplace keeps them in lockstep with the chart.
+  install:
+    crds: CreateReplace
   upgrade:
+    crds: CreateReplace
     strategy:
       name: RetryOnFailure
       retryInterval: 5m

@@ -10,5 +10,11 @@ spec:
   layerSelector:
     mediaType: "application/vnd.cncf.helm.chart.content.v1.tar+gzip"
     operation: copy
+  # Exact version, not a semver range: Renovate's flux manager bumps this
+  # tag through a PR like every other chart in the repo (a range let Flux
+  # roll patches in silently but never surfaced a new minor - v1.8 reached
+  # EOL unnoticed). Before merging a minor bump, read the release's
+  # "breaking changes" notes and check the Kubernetes version against
+  # https://gateway.envoyproxy.io/news/releases/matrix/.
   ref:
-    semver: ">=1.8.0 <1.9.0"
+    tag: v1.10.0
