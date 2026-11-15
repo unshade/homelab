@@ -51,8 +51,8 @@ zfs set sharenfs="rw=@192.168.1.252/32:@192.168.1.206/32:@192.168.1.5/32:@10.200
 | Nodes | `talos-cp1` (`10.200.0.52`, control-plane), `w-1` (`10.200.0.7` - temporary, see below) — both static |
 | Interface | `ens18` (both nodes) - `talos-cp1` is also dual-homed on `ens19` (`10.200.0.52`), `ens18`'s old `192.168.1.252` kept as an inert rollback address, no longer routed |
 | Gateway | `10.200.0.1` (was `192.168.1.254` before the router migration) |
-| Talos version | v1.13.5 |
-| Kubernetes version | v1.36.2 |
+| Talos version | v1.14.6 |
+| Kubernetes version | v1.36.6 |
 | CNI | [Cilium](https://cilium.io) (replaces flannel), kube-proxy-replacement mode, LoadBalancer IPs via L2 announcement (replaces the never-installed MetalLB) — see [Networking: Cilium](#networking-cilium) |
 | Role | single control-plane (`talos-cp1`) by design — a 2-node etcd (the earlier setup) has zero real fault tolerance anyway, since quorum of 2 needs both members healthy. `talos-cp1` has `allowSchedulingOnControlPlanes: true` so it still runs regular pods alongside `w-1`, not just etcd/control-plane |
 | Data disk | `sdb`, 430GB, XFS, mounted at `/var/mnt/data` on **each** node (see Storage section) — `longhorn-strict-local` volumes are pinned to whichever node the pod using them lands on, so both nodes need their own copy of this disk/mount, not a shared one |

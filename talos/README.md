@@ -140,17 +140,30 @@ cd talos
 $EDITOR patches/common.yaml
 
 # 2. regenerate the base configs - one per machine type, both from the same common.yaml
+#
+#    --talos-version v1.13 is required: from 1.14 on, gen config emits the new multi-document
+#    format (UnattendedInstallConfig, KubeNetworkConfig, KubeProxyConfig, ...), which conflicts
+#    with the legacy machine:/cluster: fields common.yaml sets - talosctl validate then rejects
+#    the result ("... is already set in v1alpha1 config"). Pinning the config contract to 1.13
+#    keeps today's format; it's still a valid config for the 1.14 nodes. Drop the flag only
+#    after migrating common.yaml to the multi-document kinds.
+#
+#    --kubernetes-version must match what the cluster actually runs (talosctl upgrade-k8s
+#    rewrites the image versions in each node's live config - bump it here after every
+#    Kubernetes upgrade, or an apply-config would silently downgrade the control plane images).
 sops -d secrets-sops-all.yaml > out/.secrets.yaml
 talosctl gen config talos-proxmox-cluster https://talos-api.lan:6443 \
   --with-secrets out/.secrets.yaml \
-  --kubernetes-version 1.36.2 \
+  --talos-version v1.13 \
+  --kubernetes-version 1.36.6 \
   --output-types controlplane,talosconfig \
   --output out/base-cp \
   --config-patch @patches/common.yaml \
   --force
 talosctl gen config talos-proxmox-cluster https://talos-api.lan:6443 \
   --with-secrets out/.secrets.yaml \
-  --kubernetes-version 1.36.2 \
+  --talos-version v1.13 \
+  --kubernetes-version 1.36.6 \
   --output-types worker,talosconfig \
   --output out/base-worker \
   --config-patch @patches/common.yaml \
@@ -228,8 +241,34 @@ kubectl apply -f my-manifest.yaml         # deploy something
 ### Upgrading Kubernetes itself (separate from Talos OS upgrades)
 
 ```bash
-talosctl -n 10.200.0.52 upgrade-k8s --to 1.37.0
+# --endpoint: talosctl otherwise talks to the API through the cluster endpoint
+# (https://talos-api.lan:6443), which a laptop outside the LAN DNS can't resolve.
+# Always --dry-run first: it checks Talos/Kubernetes compatibility and removed APIs and
+# shows every bootstrap-manifest change (CoreDNS, pruned leftovers) before touching anything.
+talosctl -n 10.200.0.52 upgrade-k8s --to <version> --endpoint https://10.200.0.52:6443 --dry-run
+talosctl -n 10.200.0.52 upgrade-k8s --to <version> --endpoint https://10.200.0.52:6443
 ```
+
+Before a **minor** Kubernetes upgrade, also check the version is within the tested range of
+Cilium (`Documentation/network/kubernetes/requirements.rst` for its release) and of Envoy
+Gateway (its compatibility matrix) - both sit on the critical network path. Then update
+`--kubernetes-version` in the regeneration commands above.
+
+### Upgrading Talos itself
+
+`talosctl upgrade` drains the node from your machine through the same `talos-api.lan`
+endpoint, so drain with `kubectl` (which uses the IP) and pass `--drain=false`. One node at
+a time, workers first, `talos-cp1` last (its reboot takes the API down for a few minutes):
+
+```bash
+kubectl cnpg promote <cluster> <instance-on-another-node> -n <ns>   # for each CNPG primary on the node
+kubectl drain <node> --ignore-daemonsets --delete-emptydir-data
+talosctl -n <ip> upgrade --drain=false --image factory.talos.dev/installer/<schematic>:<version>
+kubectl uncordon <node>   # then wait for Longhorn volumes + CNPG clusters to report healthy
+```
+
+Take an etcd snapshot first (`talosctl -n 10.200.0.52 etcd snapshot out/etcd-backups/...`)
+and update `machine.install.image` in the patches afterwards - `talosctl upgrade` doesn't.
 
 ### If you lose network access to the node
 
@@ -462,7 +501,7 @@ a fresh DHCP lease, `192.168.1.22` again in this case):
 ```bash
 # worker, not controlplane - see "Changing the machine config" above for the full two-type flow
 talosctl gen config talos-proxmox-cluster https://192.168.1.252:6443 \
-  --with-secrets out/.secrets.yaml --kubernetes-version 1.36.2 \
+  --with-secrets out/.secrets.yaml --kubernetes-version 1.36.6 \
   --output-types worker,talosconfig --output out/base-worker \
   --config-patch @patches/common.yaml --force
 yq -i 'select(.kind != "HostnameConfig")' out/base-worker/worker.yaml
