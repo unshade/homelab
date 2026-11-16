@@ -74,6 +74,19 @@ spec:
               value: "1.1.1.1"
             - name: TZ
               value: Europe/Paris
+          # On AUTH_FAILED (NordVPN intermittently rejects valid credentials
+          # on some servers), OpenVPN soft-restarts against the *same* server
+          # forever and gluetun never rotates. Gluetun's own healthcheck
+          # fails while the tunnel is down; restarting the container makes it
+          # pick a new random server in SERVER_COUNTRIES. ~3 min of downtime
+          # tolerated (handshake timeouts alone take 60s per attempt).
+          livenessProbe:
+            exec:
+              command: ["/gluetun-entrypoint", "healthcheck"]
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 4
           volumeMounts:
             - name: dev-tun
               mountPath: /dev/net/tun
